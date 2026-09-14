@@ -552,7 +552,7 @@ function imprimirProposta(clienteNome, p){
     '</style></head><body>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
       '<img src="' + LOGO_FERTIPOL + '" style="height:44px;width:auto;">' +
-      '<img src="' + LOGO_VIDAL + '" style="height:44px;width:auto;">' +
+      '<img src="' + LOGO_VIDAL + '" style="height:64px;width:auto;">' +
     '</div>' +
     '<h1>Proposta Fertipol</h1>' +
     '<div class="sub">Cliente: ' + escapeHtml(clienteNome) + '</div>' +
@@ -627,7 +627,7 @@ function render(){
               ? '<div class="proposta-foot">' + [p.prazo_pagamento ? ('Prazo: ' + escapeHtml(p.prazo_pagamento)) : '', p.validade ? ('Válida até: ' + escapeHtml(p.validade)) : ''].filter(Boolean).join(' · ') + '</div>'
               : '';
             return '<div class="proposta-card">' +
-              '<div class="proposta-head"><span style="display:flex;align-items:center;gap:8px;"><img src="' + LOGO_FERTIPOL + '" style="height:16px;width:auto;"><img src="' + LOGO_VIDAL + '" style="height:16px;width:auto;"><span>' + p.data + '</span></span><span style="display:flex;align-items:center;gap:8px;"><span class="tipo-badge">' + tipoLabel + '</span>' + printBtn + '</span></div>' +
+              '<div class="proposta-head"><span style="display:flex;align-items:center;gap:8px;"><img src="' + LOGO_FERTIPOL + '" style="height:16px;width:auto;"><img src="' + LOGO_VIDAL + '" style="height:22px;width:auto;"><span>' + p.data + '</span></span><span style="display:flex;align-items:center;gap:8px;"><span class="tipo-badge">' + tipoLabel + '</span>' + printBtn + '</span></div>' +
               '<table class="proposta-table"><thead><tr><th>Produto</th><th>Qtd</th><th>Valor/unid.</th><th>Subtotal</th></tr></thead><tbody>' + linhas + '</tbody></table>' +
               totalHtml + rodape +
               '<div class="proposta-foot" style="border-top:1px dashed var(--line-strong);padding-top:8px;">' + escapeHtml(ASSINATURA) + '</div>' +
@@ -1042,7 +1042,7 @@ async function gerarImagemProposta(clienteNome, p, btnEl){
     container.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
         '<img src="' + LOGO_FERTIPOL + '" style="height:50px;width:auto;">' +
-        '<img src="' + LOGO_VIDAL + '" style="height:50px;width:auto;">' +
+        '<img src="' + LOGO_VIDAL + '" style="height:76px;width:auto;">' +
       '</div>' +
       '<div style="font-family:\'Fraunces\',serif;font-weight:500;font-size:24px;color:#253C29;margin-bottom:4px;">Proposta Fertipol</div>' +
       '<div style="font-size:14px;color:#5B5648;margin-bottom:20px;">Cliente: ' + escapeHtml(clienteNome) + '</div>' +
