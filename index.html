@@ -109,6 +109,19 @@
   .details dd{margin:0;color:var(--ink);}
   .details .hist{margin-top:10px;border-top:1px dashed var(--line-strong);padding-top:10px;}
   .details .hist-item{font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;line-height:1.4;}
+
+  .proposta-card{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+  .proposta-head{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--paper);font-size:12px;color:var(--ink-soft);}
+  .proposta-head .tipo-badge{font-size:10.5px;padding:2px 7px;border-radius:20px;background:var(--green-tint);color:var(--green-deep);}
+  .proposta-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .proposta-table th{
+    text-align:left;font-weight:500;color:var(--ink-faint);font-size:11px;text-transform:uppercase;letter-spacing:.02em;
+    padding:6px 10px;border-bottom:1px solid var(--line);
+  }
+  .proposta-table td{padding:6px 10px;border-bottom:1px solid var(--line);color:var(--ink);}
+  .proposta-table tr:last-child td{border-bottom:none;}
+  .proposta-total{padding:7px 10px;font-size:13px;font-weight:500;color:var(--green-deep);background:var(--green-tint);text-align:right;}
+  .proposta-foot{padding:6px 10px;font-size:11.5px;color:var(--ink-faint);}
   .details .hist-date{color:var(--ink-faint);}
   .row-actions{display:flex;gap:10px;margin-top:10px;}
   .row-actions button{font-family:inherit;font-size:12.5px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink-soft);}
@@ -481,24 +494,35 @@ function render(){
     }
     let propostasHtml = '';
     if(r.propostas && r.propostas.length){
-      propostasHtml = '<div class="hist"><div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:6px;">Propostas enviadas</div>' +
+      propostasHtml = '<div style="margin-top:6px;"><div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:8px;">Propostas enviadas</div>' +
         r.propostas.map(p => {
           if(p.itens){
-            const itensTxt = p.itens.map(it => {
-              let s = it.produto || 'Produto';
-              if(it.quantidade !== null && it.quantidade !== undefined) s += ' (' + it.quantidade + ' ' + (it.unidade||'') + ')';
-              if(it.valor_unitario !== null && it.valor_unitario !== undefined) s += ' R$' + it.valor_unitario;
-              return s;
-            }).join(' + ');
-            const totalTxt = p.tipo === 'combinado' && p.total !== null && p.total !== undefined ? (' · Total: R$' + Number(p.total).toFixed(2)) : (p.tipo === 'alternativas' ? ' · (alternativas)' : '');
-            return '<div class="hist-item"><span class="hist-date">' + p.data + '</span> — ' + escapeHtml(itensTxt + totalTxt) + '</div>';
+            const linhas = p.itens.map(it => {
+              const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade : '—';
+              const unid = it.unidade || '';
+              const valorUnit = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? 'R$ ' + Number(it.valor_unitario).toFixed(2) : '—';
+              const sub = (it.subtotal !== null && it.subtotal !== undefined) ? 'R$ ' + Number(it.subtotal).toFixed(2) : '—';
+              return '<tr><td>' + escapeHtml(it.produto || '—') + '</td><td>' + escapeHtml(String(qtd)) + (unid ? ' ' + escapeHtml(unid) : '') + '</td><td>' + valorUnit + '</td><td>' + sub + '</td></tr>';
+            }).join('');
+            const tipoLabel = p.tipo === 'alternativas' ? 'Alternativas' : 'Pacote combinado';
+            const totalHtml = (p.tipo === 'combinado' && p.total !== null && p.total !== undefined)
+              ? '<div class="proposta-total">Total: R$ ' + Number(p.total).toFixed(2) + '</div>'
+              : (p.tipo === 'alternativas' ? '<div class="proposta-foot">Alternativas — cliente escolhe uma opção</div>' : '');
+            const rodape = (p.prazo_pagamento || p.validade)
+              ? '<div class="proposta-foot">' + [p.prazo_pagamento ? ('Prazo: ' + escapeHtml(p.prazo_pagamento)) : '', p.validade ? ('Válida até: ' + escapeHtml(p.validade)) : ''].filter(Boolean).join(' · ') + '</div>'
+              : '';
+            return '<div class="proposta-card">' +
+              '<div class="proposta-head"><span>' + p.data + '</span><span class="tipo-badge">' + tipoLabel + '</span></div>' +
+              '<table class="proposta-table"><thead><tr><th>Produto</th><th>Qtd</th><th>Valor/unid.</th><th>Subtotal</th></tr></thead><tbody>' + linhas + '</tbody></table>' +
+              totalHtml + rodape +
+              '</div>';
           }else{
             const partes = [];
             if(p.produto) partes.push(p.produto);
             if(p.valor) partes.push('R$ ' + p.valor);
             if(p.prazo_pagamento) partes.push(p.prazo_pagamento);
             if(p.validade) partes.push('válida até ' + p.validade);
-            return '<div class="hist-item"><span class="hist-date">' + p.data + '</span> — ' + escapeHtml(partes.join(' · ')) + '</div>';
+            return '<div class="proposta-card"><div class="proposta-head"><span>' + p.data + '</span></div><div class="proposta-foot">' + escapeHtml(partes.join(' · ')) + '</div></div>';
           }
         }).join('') + '</div>';
     }
