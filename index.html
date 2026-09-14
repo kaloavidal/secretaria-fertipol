@@ -321,6 +321,20 @@
     </div>
 
     <div id="resultadoComparacao" style="margin-top:20px;"></div>
+
+    <div class="composer" style="margin-top:26px;">
+      <label>Menor custo por hectare</label>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Informe a exigência da lavoura (kg/ha) e eu busco no catálogo a combinação de menor custo que atende ou supera cada nutriente — normalmente uma formulação base mais matérias-primas de complemento (MAP, KCl, Ureia etc, se estiverem cadastradas no catálogo acima).</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+        <div><label style="font-size:12px;">N (kg/ha)</label><input type="number" id="targetN" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
+        <div><label style="font-size:12px;">P2O5 (kg/ha)</label><input type="number" id="targetP" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
+        <div><label style="font-size:12px;">K2O (kg/ha)</label><input type="number" id="targetK" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
+        <div><label style="font-size:12px;">S (kg/ha)</label><input type="number" id="targetS" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
+      </div>
+      <button class="send-btn" id="calcularMenorCustoBtn">Calcular menor custo</button>
+      <div class="error" id="menorCustoError" style="display:none;"></div>
+    </div>
+    <div id="resultadoMenorCusto" style="margin-top:20px;"></div>
   </div>
 </div>
 
@@ -1527,6 +1541,129 @@ function compararFormulacoes(){
   container.innerHTML = html;
 }
 document.getElementById('compararBtn').addEventListener('click', compararFormulacoes);
+
+// ---- Calculadora de menor custo por hectare ----
+function combinacoes(arr, k){
+  const resultado = [];
+  function backtrack(start, atual){
+    if(atual.length === k){ resultado.push(atual.slice()); return; }
+    for(let i = start; i < arr.length; i++){
+      atual.push(arr[i]);
+      backtrack(i + 1, atual);
+      atual.pop();
+    }
+  }
+  backtrack(0, []);
+  return resultado;
+}
+
+function resolverSistemaLinear(A, b){
+  const n = A.length;
+  const M = A.map((row, i) => row.concat([b[i]]));
+  for(let col = 0; col < n; col++){
+    let pivotRow = col;
+    for(let r = col + 1; r < n; r++){
+      if(Math.abs(M[r][col]) > Math.abs(M[pivotRow][col])) pivotRow = r;
+    }
+    if(Math.abs(M[pivotRow][col]) < 1e-9) return null;
+    [M[col], M[pivotRow]] = [M[pivotRow], M[col]];
+    const pivotVal = M[col][col];
+    for(let c = col; c <= n; c++) M[col][c] /= pivotVal;
+    for(let r = 0; r < n; r++){
+      if(r === col) continue;
+      const factor = M[r][col];
+      for(let c = col; c <= n; c++) M[r][c] -= factor * M[col][c];
+    }
+  }
+  return M.map(row => row[n]);
+}
+
+function resolverMenorCusto(targets, catalogo){
+  const nutrientKeys = Object.keys(targets).filter(k => targets[k] > 0);
+  const m = nutrientKeys.length;
+  if(m === 0) return [];
+  const produtos = catalogo.filter(f => f.preco_ton);
+  const resultados = [];
+  const vistos = new Set();
+
+  for(let k = 1; k <= Math.min(m, produtos.length); k++){
+    const prodCombos = combinacoes(produtos, k);
+    const nutCombos = combinacoes(nutrientKeys, k);
+    prodCombos.forEach(prodSet => {
+      nutCombos.forEach(nutSet => {
+        const A = nutSet.map(nk => prodSet.map(p => (p[nk] || 0) / 100));
+        const b = nutSet.map(nk => targets[nk]);
+        const doses = resolverSistemaLinear(A, b);
+        if(!doses) return;
+        if(doses.some(d => d < -1e-6)) return;
+        const dosesClean = doses.map(d => Math.max(d, 0));
+
+        const delivered = {};
+        nutrientKeys.forEach(nk => {
+          delivered[nk] = prodSet.reduce((s, p, i) => s + (p[nk] || 0) / 100 * dosesClean[i], 0);
+        });
+        const feasible = nutrientKeys.every(nk => delivered[nk] >= targets[nk] - 1e-6);
+        if(!feasible) return;
+
+        const itens = prodSet.map((p, i) => ({ formulacao: p, dose: dosesClean[i] })).filter(x => x.dose > 1e-6);
+        if(itens.length === 0) return;
+        const assinatura = itens.map(x => x.formulacao.id).sort().join('|');
+        const custoHa = itens.reduce((s, x) => s + (x.formulacao.preco_ton * x.dose / 1000), 0);
+
+        if(vistos.has(assinatura)){
+          const existente = resultados.find(r => r.assinatura === assinatura);
+          if(existente && custoHa < existente.custoHa){ existente.custoHa = custoHa; existente.itens = itens; existente.delivered = delivered; }
+          return;
+        }
+        vistos.add(assinatura);
+        resultados.push({ assinatura, itens, custoHa, delivered });
+      });
+    });
+  }
+  resultados.sort((a, b) => a.custoHa - b.custoHa);
+  return resultados;
+}
+
+function calcularMenorCusto(){
+  const targets = {
+    n: parseFloat(document.getElementById('targetN').value) || 0,
+    p2o5: parseFloat(document.getElementById('targetP').value) || 0,
+    k2o: parseFloat(document.getElementById('targetK').value) || 0,
+    s: parseFloat(document.getElementById('targetS').value) || 0
+  };
+  const errEl = document.getElementById('menorCustoError');
+  errEl.style.display = 'none';
+  const container = document.getElementById('resultadoMenorCusto');
+
+  const algumTarget = Object.values(targets).some(v => v > 0);
+  if(!algumTarget){ errEl.textContent = 'Informe pelo menos um nutriente com kg/ha.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
+
+  const comPreco = formulacoes.filter(f => f.preco_ton);
+  if(comPreco.length === 0){ errEl.textContent = 'Cadastre formulações com preço no catálogo acima primeiro.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
+
+  const resultados = resolverMenorCusto(targets, comPreco);
+  if(resultados.length === 0){
+    container.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Não encontrei combinação no catálogo que atenda essa exigência. Talvez falte uma formulação com maior teor de algum nutriente.</p>';
+    return;
+  }
+
+  const top5 = resultados.slice(0, 5);
+  let html = '';
+  top5.forEach((r, idx) => {
+    const linhasItens = r.itens.map(x => '<div class="hist-item">' + escapeHtml(x.formulacao.nome) + ' — ' + x.dose.toFixed(1) + ' kg/ha (R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '/ha)</div>').join('');
+    const entregaTxt = Object.keys(targets).filter(k => targets[k] > 0).map(k => {
+      const label = k === 'n' ? 'N' : k === 'p2o5' ? 'P2O5' : k === 'k2o' ? 'K2O' : 'S';
+      return label + ': ' + r.delivered[k].toFixed(1) + '/' + targets[k].toFixed(1) + ' kg/ha';
+    }).join(' · ');
+    html += '<div class="proposta-card" style="margin-bottom:12px;">' +
+      '<div class="proposta-head"><span>' + (idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx+1)) + '</span><span class="tipo-badge">R$ ' + r.custoHa.toFixed(2) + '/ha</span></div>' +
+      '<div style="padding:10px 14px;">' + linhasItens + '</div>' +
+      '<div class="proposta-foot">Entrega: ' + escapeHtml(entregaTxt) + '</div>' +
+      '</div>';
+  });
+  container.innerHTML = html;
+}
+document.getElementById('calcularMenorCustoBtn').addEventListener('click', calcularMenorCusto);
 
 checkSession();
 
