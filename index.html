@@ -193,9 +193,6 @@ function fieldLabels(){
     janela_compra: 'Janela de compra', forma_pagamento: 'Forma de pagamento',
     quem_decide: 'Quem decide', origem_contato: 'Origem do contato',
     motivo_perda: 'Motivo da perda',
-    ultima_proposta_produto: 'Produto da proposta', ultima_proposta_valor: 'Valor da proposta (R$)',
-    ultima_proposta_prazo_pagamento: 'Prazo de pagamento proposto', ultima_proposta_validade: 'Validade da proposta',
-    ultima_proposta_data: 'Data da proposta',
     perdido_para: 'Perdido para', perdido_diferenca: 'Diferença/motivo da perda',
     observacoes: 'Observações'
   };
@@ -313,10 +310,22 @@ async function registrar(){
       if(campos[key]) camposMap[key] = campos[key];
     }
 
+    let novaProposta = null;
+    if(parsed.proposta && (parsed.proposta.produto || parsed.proposta.valor || parsed.proposta.prazo_pagamento || parsed.proposta.validade)){
+      novaProposta = {
+        data: dataStr,
+        produto: parsed.proposta.produto || '',
+        valor: parsed.proposta.valor || '',
+        prazo_pagamento: parsed.proposta.prazo_pagamento || '',
+        validade: parsed.proposta.validade || ''
+      };
+    }
+
     if(existing){
       const novoHistorico = [{data: dataStr, texto}, ...(existing.historico || [])];
+      const novasPropostas = novaProposta ? [novaProposta, ...(existing.propostas || [])] : (existing.propostas || []);
       const { error: updError } = await supabaseClient.from('clientes')
-        .update({ ...camposMap, historico: novoHistorico, updated_at: new Date().toISOString() })
+        .update({ ...camposMap, historico: novoHistorico, propostas: novasPropostas, updated_at: new Date().toISOString() })
         .eq('id', existing.id);
       if(updError) throw updError;
     }else{
@@ -324,7 +333,8 @@ async function registrar(){
         cliente: parsed.cliente,
         status: camposMap.status || 'Não contatado',
         ...camposMap,
-        historico: [{data: dataStr, texto}]
+        historico: [{data: dataStr, texto}],
+        propostas: novaProposta ? [novaProposta] : []
       });
       if(insError) throw insError;
     }
@@ -397,6 +407,18 @@ function render(){
     for(const key of Object.keys(labels)){
       if(r[key]) detailRows += '<dt>' + labels[key] + '</dt><dd>' + escapeHtml(String(r[key])) + '</dd>';
     }
+    let propostasHtml = '';
+    if(r.propostas && r.propostas.length){
+      propostasHtml = '<div class="hist"><div style="font-size:12.5px;color:var(--ink-faint);margin-bottom:6px;">Propostas enviadas</div>' +
+        r.propostas.map(p => {
+          const partes = [];
+          if(p.produto) partes.push(p.produto);
+          if(p.valor) partes.push('R$ ' + p.valor);
+          if(p.prazo_pagamento) partes.push(p.prazo_pagamento);
+          if(p.validade) partes.push('válida até ' + p.validade);
+          return '<div class="hist-item"><span class="hist-date">' + p.data + '</span> — ' + escapeHtml(partes.join(' · ')) + '</div>';
+        }).join('') + '</div>';
+    }
     let histHtml = '';
     if(r.historico && r.historico.length){
       histHtml = '<div class="hist">' + r.historico.slice(0,5).map(h =>
@@ -412,6 +434,7 @@ function render(){
       (r.proximo_passo ? '<div class="row-sub">' + escapeHtml(r.proximo_passo) + (r.data_proximo_contato ? ' · ' + escapeHtml(r.data_proximo_contato) : '') + '</div>' : '') +
       '<div class="details" id="details-' + r.id + '">' +
         (detailRows ? '<dl>' + detailRows + '</dl>' : '') +
+        propostasHtml +
         histHtml +
         '<div class="row-actions"><button class="del" data-id="' + r.id + '">Remover cliente</button></div>' +
       '</div>';
