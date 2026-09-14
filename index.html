@@ -169,10 +169,15 @@
 </div>
 
 <script>
+try {
+
 // ---- Configuração do Supabase ----
+if(!window.supabase){
+  throw new Error('A biblioteca do Supabase não carregou (problema de conexão ou bloqueio de script). Recarregue a página.');
+}
 const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let records = [];
 let filterText = '';
@@ -212,7 +217,7 @@ function escapeHtml(s){
 
 // ---- Autenticação ----
 async function checkSession(){
-  const { data } = await supabase.auth.getSession();
+  const { data } = await supabaseClient.auth.getSession();
   if(data.session){
     showApp();
   }else{
@@ -238,7 +243,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
   btn.textContent = 'Entrando…';
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false;
   btn.textContent = 'Entrar';
   if(error){
@@ -250,7 +255,7 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   showLogin();
 });
 
@@ -258,7 +263,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 async function loadRecords(){
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('list').innerHTML = '';
-  const { data, error } = await supabase.from('clientes').select('*').order('cliente');
+  const { data, error } = await supabaseClient.from('clientes').select('*').order('cliente');
   document.getElementById('loadingState').style.display = 'none';
   if(error){
     showError('Não consegui carregar os dados: ' + error.message);
@@ -283,7 +288,7 @@ async function registrar(){
   sendBtn.textContent = 'Registrando…';
   try{
     const nomesExistentes = records.map(r => r.cliente);
-    const { data: parsed, error: fnError } = await supabase.functions.invoke('parse-cliente', {
+    const { data: parsed, error: fnError } = await supabaseClient.functions.invoke('parse-cliente', {
       body: { texto, clientesExistentes: nomesExistentes }
     });
     if(fnError) throw fnError;
@@ -305,12 +310,12 @@ async function registrar(){
 
     if(existing){
       const novoHistorico = [{data: dataStr, texto}, ...(existing.historico || [])];
-      const { error: updError } = await supabase.from('clientes')
+      const { error: updError } = await supabaseClient.from('clientes')
         .update({ ...camposMap, historico: novoHistorico, updated_at: new Date().toISOString() })
         .eq('id', existing.id);
       if(updError) throw updError;
     }else{
-      const { error: insError } = await supabase.from('clientes').insert({
+      const { error: insError } = await supabaseClient.from('clientes').insert({
         cliente: parsed.cliente,
         status: camposMap.status || 'Não contatado',
         ...camposMap,
@@ -332,7 +337,7 @@ async function registrar(){
 
 async function excluirCliente(id, ev){
   ev.stopPropagation();
-  const { error } = await supabase.from('clientes').delete().eq('id', id);
+  const { error } = await supabaseClient.from('clientes').delete().eq('id', id);
   if(error){ showError('Não consegui remover: ' + error.message); return; }
   await loadRecords();
 }
@@ -480,6 +485,15 @@ if(SpeechRecognition){
 }
 
 checkSession();
+
+} catch (initError) {
+  const errEl = document.getElementById('loginError');
+  if(errEl){
+    errEl.textContent = 'Erro ao carregar: ' + initError.message;
+    errEl.style.display = 'block';
+  }
+  console.error(initError);
+}
 </script>
 </body>
 </html>
