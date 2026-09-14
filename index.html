@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     --bg: #F1EFE3;
@@ -483,6 +484,14 @@ document.getElementById('list').addEventListener('click', (ev) => {
     if(entry) whatsappProposta(entry.cliente, entry.proposta);
     return;
   }
+  const imgBtn = ev.target.closest('[data-img-idx]');
+  if(imgBtn){
+    ev.stopPropagation();
+    const idx = parseInt(imgBtn.dataset.imgIdx, 10);
+    const entry = printRegistry[idx];
+    if(entry) gerarImagemProposta(entry.cliente, entry.proposta, imgBtn);
+    return;
+  }
 });
 
 function imprimirProposta(clienteNome, p){
@@ -579,7 +588,8 @@ function render(){
           const printIdx = printRegistry.length;
           printRegistry.push({ cliente: r.cliente, proposta: p });
           const printBtn = '<button type="button" class="print-proposta-btn" data-print-idx="' + printIdx + '">Imprimir</button>' +
-            '<button type="button" class="print-proposta-btn" data-whats-idx="' + printIdx + '">WhatsApp</button>';
+            '<button type="button" class="print-proposta-btn" data-whats-idx="' + printIdx + '">WhatsApp (texto)</button>' +
+            '<button type="button" class="print-proposta-btn" data-img-idx="' + printIdx + '">Cartão (imagem)</button>';
           if(p.itens){
             const linhas = p.itens.map(it => {
               const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade : '—';
@@ -917,6 +927,83 @@ async function whatsappProposta(clienteNome, p){
     document.getElementById('whatsappTexto').value = texto;
     document.getElementById('whatsappOutput').style.display = 'block';
     showPropostaError('Não consegui copiar automaticamente — o texto está pronto ali embaixo, selecione e copie manualmente.');
+  }
+}
+
+async function gerarImagemProposta(clienteNome, p, btnEl){
+  const original = btnEl.textContent;
+  btnEl.textContent = 'Gerando…';
+  btnEl.disabled = true;
+  try{
+    let linhasTabela = '';
+    let totalHtml = '';
+    let rodapeHtml = '';
+    if(p.itens){
+      linhasTabela = p.itens.map(it => {
+        const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade : '—';
+        const unid = it.unidade || '';
+        const valorUnit = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? 'R$ ' + Number(it.valor_unitario).toFixed(2) : '—';
+        const sub = (it.subtotal !== null && it.subtotal !== undefined) ? 'R$ ' + Number(it.subtotal).toFixed(2) : '—';
+        return '<tr><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + escapeHtml(it.produto || '—') + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + escapeHtml(String(qtd)) + (unid ? ' ' + escapeHtml(unid) : '') + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + valorUnit + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + sub + '</td></tr>';
+      }).join('');
+      if(p.tipo === 'combinado' && p.total !== null && p.total !== undefined){
+        totalHtml = '<div style="padding:12px 16px;font-size:16px;font-weight:500;color:#253C29;background:#E1E9DE;text-align:right;">Total: R$ ' + Number(p.total).toFixed(2) + '</div>';
+      }else if(p.tipo === 'alternativas'){
+        totalHtml = '<div style="padding:10px 16px;font-size:13px;color:#948E7C;">Alternativas — cliente escolhe uma opção</div>';
+      }
+      const rodapeItens = [];
+      if(p.prazo_pagamento) rodapeItens.push('Prazo: ' + escapeHtml(p.prazo_pagamento));
+      if(p.validade) rodapeItens.push('Válida até: ' + escapeHtml(p.validade));
+      if(rodapeItens.length) rodapeHtml = '<div style="padding:10px 16px;font-size:13px;color:#948E7C;">' + rodapeItens.join(' · ') + '</div>';
+    }
+
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '600px';
+    container.style.background = '#F1EFE3';
+    container.style.padding = '32px';
+    container.style.fontFamily = "'IBM Plex Sans', sans-serif";
+    container.innerHTML =
+      '<div style="font-family:\'Fraunces\',serif;font-weight:500;font-size:24px;color:#253C29;margin-bottom:4px;">Proposta Fertipol</div>' +
+      '<div style="font-size:14px;color:#5B5648;margin-bottom:20px;">Cliente: ' + escapeHtml(clienteNome) + '</div>' +
+      '<div style="border:1px solid #DEDACB;border-radius:10px;overflow:hidden;background:#FAF8F0;">' +
+        '<div style="padding:12px 16px;background:#FAF8F0;font-size:13px;color:#5B5648;border-bottom:1px solid #DEDACB;">' + p.data + '</div>' +
+        (linhasTabela ? '<table style="width:100%;border-collapse:collapse;font-size:14px;background:#fff;"><thead><tr>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Produto</th>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Qtd</th>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Valor/unid.</th>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Subtotal</th>' +
+          '</tr></thead><tbody style="color:#26231C;">' + linhasTabela + '</tbody></table>' : '') +
+        totalHtml + rodapeHtml +
+      '</div>';
+    document.body.appendChild(container);
+
+    const canvas = await html2canvas(container, { backgroundColor: '#F1EFE3', scale: 2 });
+    document.body.removeChild(container);
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const fileName = 'proposta_' + clienteNome.replace(/[^a-z0-9]+/gi, '_').toLowerCase() + '.png';
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], title: 'Proposta Fertipol — ' + clienteNome });
+    }else{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showConfirm('Imagem baixada — já pode anexar no WhatsApp.');
+    }
+  }catch(e){
+    if(e && e.name !== 'AbortError'){
+      showError('Não consegui gerar a imagem: ' + (e.message || e));
+    }
+  }finally{
+    btnEl.textContent = original;
+    btnEl.disabled = false;
   }
 }
 
