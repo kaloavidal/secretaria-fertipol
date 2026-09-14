@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secretária Virtual — Fertipol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #F1EFE3;
+    --paper: #FAF8F0;
+    --ink: #26231C;
+    --ink-soft: #5B5648;
+    --ink-faint: #948E7C;
+    --line: #DEDACB;
+    --line-strong: #C7C2AE;
+    --green: #3C5A40;
+    --green-deep: #253C29;
+    --green-tint: #E1E9DE;
+    --clay: #A85A32;
+    --clay-tint: #F3E2D6;
+    --amber: #94711F;
+    --danger: #A13B2C;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);}
+  .app{
+    font-family:'IBM Plex Sans',sans-serif;
+    color:var(--ink);
+    padding:28px 20px 60px;
+    max-width:760px;
+    margin:0 auto;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  .eyebrow{font-size:13px;color:var(--ink-faint);margin:0 0 4px;}
+  header{margin-bottom:22px;}
+  header h1{font-size:26px;color:var(--green-deep);}
+  header p{font-size:14px;color:var(--ink-soft);margin:6px 0 0;max-width:52ch;line-height:1.5;}
+
+  /* Login */
+  .login-wrap{max-width:360px;margin:80px auto;padding:0 20px;font-family:'IBM Plex Sans',sans-serif;}
+  .login-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;}
+  .login-card h1{font-size:22px;color:var(--green-deep);margin-bottom:6px;}
+  .login-card p{font-size:13.5px;color:var(--ink-soft);margin:0 0 18px;}
+  .login-card input{
+    width:100%;font-family:inherit;font-size:14.5px;padding:10px 12px;
+    border:1px solid var(--line-strong);border-radius:7px;margin-bottom:10px;background:#fff;
+  }
+  .login-card input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-tint);}
+  .login-card button{
+    width:100%;background:var(--green);color:#fff;border:none;border-radius:7px;
+    padding:11px;font-size:14.5px;font-family:inherit;font-weight:500;cursor:pointer;margin-top:4px;
+  }
+  .login-card button:hover{background:var(--green-deep);}
+  .login-card button:disabled{opacity:.6;cursor:default;}
+  .login-error{font-size:13px;color:var(--danger);margin-top:10px;}
+
+  .composer{
+    background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:26px;
+  }
+  .composer label{font-size:13px;color:var(--ink-soft);display:block;margin-bottom:8px;}
+  textarea{
+    width:100%;min-height:76px;resize:vertical;font-family:inherit;font-size:14.5px;color:var(--ink);
+    background:#fff;border:1px solid var(--line-strong);border-radius:7px;padding:10px 12px;line-height:1.5;
+  }
+  textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-tint);}
+  .composer-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;}
+  .mic-btn{
+    width:38px;height:38px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:var(--ink-soft);
+  }
+  .mic-btn.listening{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .send-btn{
+    background:var(--green);color:#fff;border:none;border-radius:7px;padding:10px 18px;font-size:14px;
+    font-family:inherit;font-weight:500;cursor:pointer;
+  }
+  .send-btn:disabled{opacity:.55;cursor:default;}
+  .send-btn:hover:not(:disabled){background:var(--green-deep);}
+  .error{font-size:13px;color:var(--danger);margin-top:8px;}
+  .confirm{font-size:13.5px;color:var(--green-deep);background:var(--green-tint);border-radius:7px;padding:8px 12px;margin-top:10px;line-height:1.4;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .search{flex:1;min-width:180px;font-family:inherit;font-size:13.5px;border:1px solid var(--line-strong);border-radius:7px;padding:8px 10px;background:var(--paper);}
+  .search:focus{outline:none;border-color:var(--green);}
+  .export-btn, .logout-btn{
+    font-family:inherit;font-size:13px;color:var(--ink-soft);background:transparent;border:1px solid var(--line-strong);
+    border-radius:7px;padding:7px 12px;cursor:pointer;
+  }
+  .export-btn:hover, .logout-btn:hover{background:var(--paper);}
+
+  .count{font-size:12.5px;color:var(--ink-faint);margin:0 0 8px;}
+  .list{border-top:1px solid var(--line);}
+  .row{border-bottom:1px solid var(--line);padding:12px 4px;cursor:pointer;}
+  .row-top{display:flex;align-items:center;gap:10px;}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .dot.alto{background:var(--clay);}
+  .dot.medio{background:var(--amber);}
+  .dot.baixo{background:var(--ink-faint);}
+  .row-name{font-size:15px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tag{font-size:11.5px;padding:3px 9px;border-radius:20px;white-space:nowrap;background:var(--green-tint);color:var(--green-deep);}
+  .tag.perdido{background:var(--clay-tint);color:#7A3A1E;}
+  .row-sub{font-size:12.5px;color:var(--ink-faint);margin-top:4px;padding-left:19px;}
+  .details{padding:10px 4px 14px 19px;font-size:13.5px;color:var(--ink-soft);display:none;}
+  .details.open{display:block;}
+  .details dl{display:grid;grid-template-columns:120px 1fr;gap:6px 10px;margin:0 0 10px;}
+  .details dt{color:var(--ink-faint);}
+  .details dd{margin:0;color:var(--ink);}
+  .details .hist{margin-top:10px;border-top:1px dashed var(--line-strong);padding-top:10px;}
+  .details .hist-item{font-size:12.5px;color:var(--ink-soft);margin-bottom:5px;line-height:1.4;}
+  .details .hist-date{color:var(--ink-faint);}
+  .row-actions{display:flex;gap:10px;margin-top:10px;}
+  .row-actions button{font-family:inherit;font-size:12.5px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink-soft);}
+  .row-actions button:hover{background:var(--paper);}
+  .row-actions button.del{color:var(--danger);border-color:#E3C3BB;}
+  .empty{text-align:center;padding:40px 20px;color:var(--ink-faint);font-size:14px;}
+  .loading{text-align:center;padding:40px 20px;color:var(--ink-faint);font-size:14px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h1>Secretária virtual</h1>
+    <p>Entre com seu login para acessar sua carteira.</p>
+    <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+    <button id="loginBtn">Entrar</button>
+    <div class="login-error" id="loginError" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+  <header>
+    <p class="eyebrow">Sidrolândia · MS</p>
+    <h1>Secretária virtual</h1>
+    <p>Conte o que aconteceu com um cliente, em texto livre, e ela organiza nos campos certos da carteira.</p>
+  </header>
+
+  <div class="composer">
+    <label for="entrada">O que aconteceu</label>
+    <textarea id="entrada" placeholder="Ex: falei com o João da Fazenda Santa Rita agora, ele tá em negociação e quer ver o preço do formulado antes de fechar, ligar de novo semana que vem"></textarea>
+    <div class="composer-row">
+      <button class="mic-btn" id="micBtn" aria-label="Falar em vez de digitar" title="Falar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+      </button>
+      <button class="send-btn" id="sendBtn">Registrar</button>
+    </div>
+    <div class="error" id="errorMsg" style="display:none;"></div>
+    <div class="confirm" id="confirmMsg" style="display:none;"></div>
+  </div>
+
+  <div class="toolbar">
+    <input class="search" id="searchInput" placeholder="Buscar cliente">
+    <select class="search" id="potencialFilter" style="flex:0 0 auto;min-width:150px;">
+      <option value="">Todos os potenciais</option>
+      <option value="alto">Potencial alto</option>
+      <option value="medio">Potencial médio</option>
+      <option value="baixo">Potencial baixo</option>
+    </select>
+    <button class="export-btn" id="exportBtn">Exportar CSV</button>
+    <button class="logout-btn" id="logoutBtn">Sair</button>
+  </div>
+  <p class="count" id="countLabel"></p>
+  <div class="loading" id="loadingState" style="display:none;">Carregando…</div>
+  <div class="list" id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">Nenhum cliente ainda. Conte sobre o primeiro contato acima.</div>
+</div>
+
+<script>
+// ---- Configuração do Supabase ----
+const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let records = [];
+let filterText = '';
+let potencialFilterValue = '';
+
+function fieldLabels(){
+  return {
+    contato: 'Contato', telefone: 'Telefone', cultura: 'Cultura', area: 'Área (ha)',
+    potencial: 'Potencial', status: 'Status', ultima_acao: 'Última ação',
+    proximo_passo: 'Próximo passo', data_proximo_contato: 'Próximo contato',
+    comprou_safra_atual: 'Comprou safra atual', fornecedor_compra: 'Fornecedor da compra',
+    produto_comprado: 'Produto/adubo comprado', valor_pago: 'Valor pago (R$)',
+    janela_compra: 'Janela de compra', forma_pagamento: 'Forma de pagamento',
+    quem_decide: 'Quem decide', origem_contato: 'Origem do contato',
+    motivo_perda: 'Motivo da perda', observacoes: 'Observações'
+  };
+}
+
+function potencialClass(p){
+  if(!p) return 'baixo';
+  const v = p.toLowerCase();
+  if(v.includes('alto')) return 'alto';
+  if(v.includes('m')) return 'medio';
+  return 'baixo';
+}
+function statusTagClass(s){
+  if(!s) return '';
+  const v = s.toLowerCase();
+  if(v.includes('perdido')) return 'perdido';
+  return '';
+}
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ---- Autenticação ----
+async function checkSession(){
+  const { data } = await supabase.auth.getSession();
+  if(data.session){
+    showApp();
+  }else{
+    showLogin();
+  }
+}
+
+function showLogin(){
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('mainApp').style.display = 'none';
+}
+function showApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  loadRecords();
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+  if(error){
+    errEl.textContent = 'E-mail ou senha incorretos.';
+    errEl.style.display = 'block';
+    return;
+  }
+  showApp();
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  showLogin();
+});
+
+// ---- Dados ----
+async function loadRecords(){
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('list').innerHTML = '';
+  const { data, error } = await supabase.from('clientes').select('*').order('cliente');
+  document.getElementById('loadingState').style.display = 'none';
+  if(error){
+    showError('Não consegui carregar os dados: ' + error.message);
+    records = [];
+  }else{
+    records = data || [];
+  }
+  render();
+}
+
+async function registrar(){
+  const textarea = document.getElementById('entrada');
+  const texto = textarea.value.trim();
+  clearError();
+  document.getElementById('confirmMsg').style.display = 'none';
+  if(!texto){
+    showError('Escreva ou fale algo antes de registrar.');
+    return;
+  }
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Registrando…';
+  try{
+    const nomesExistentes = records.map(r => r.cliente);
+    const { data: parsed, error: fnError } = await supabase.functions.invoke('parse-cliente', {
+      body: { texto, clientesExistentes: nomesExistentes }
+    });
+    if(fnError) throw fnError;
+    if(parsed.error) throw new Error(parsed.error);
+    if(!parsed.cliente){
+      showError('Não consegui identificar o cliente. Tente incluir o nome dele ou da fazenda.');
+      return;
+    }
+
+    const agora = new Date();
+    const dataStr = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const existing = records.find(r => r.cliente.trim().toLowerCase() === parsed.cliente.trim().toLowerCase());
+
+    const camposMap = {};
+    const campos = parsed.campos || {};
+    for(const key of Object.keys(fieldLabels())){
+      if(campos[key]) camposMap[key] = campos[key];
+    }
+
+    if(existing){
+      const novoHistorico = [{data: dataStr, texto}, ...(existing.historico || [])];
+      const { error: updError } = await supabase.from('clientes')
+        .update({ ...camposMap, historico: novoHistorico, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+      if(updError) throw updError;
+    }else{
+      const { error: insError } = await supabase.from('clientes').insert({
+        cliente: parsed.cliente,
+        status: camposMap.status || 'Não contatado',
+        ...camposMap,
+        historico: [{data: dataStr, texto}]
+      });
+      if(insError) throw insError;
+    }
+
+    textarea.value = '';
+    showConfirm(parsed.resumo || ('Registrado para ' + parsed.cliente + '.'));
+    await loadRecords();
+  }catch(e){
+    showError('Não consegui processar essa entrada agora: ' + (e.message || e));
+  }finally{
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Registrar';
+  }
+}
+
+async function excluirCliente(id, ev){
+  ev.stopPropagation();
+  const { error } = await supabase.from('clientes').delete().eq('id', id);
+  if(error){ showError('Não consegui remover: ' + error.message); return; }
+  await loadRecords();
+}
+
+function showError(msg){
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('confirmMsg').style.display = 'none';
+}
+function clearError(){ document.getElementById('errorMsg').style.display = 'none'; }
+function showConfirm(msg){
+  const el = document.getElementById('confirmMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearError();
+}
+
+function toggleDetails(id){
+  document.getElementById('details-' + id).classList.toggle('open');
+}
+
+function render(){
+  const list = document.getElementById('list');
+  const empty = document.getElementById('emptyState');
+  const countLabel = document.getElementById('countLabel');
+  list.innerHTML = '';
+
+  let visible = records.filter(r => r.cliente.toLowerCase().includes(filterText.toLowerCase()));
+  if(potencialFilterValue){
+    visible = visible.filter(r => potencialClass(r.potencial) === potencialFilterValue);
+  }
+  visible = visible.slice().sort((a,b) => {
+    if(potencialFilterValue) return a.cliente.localeCompare(b.cliente);
+    const order = {alto:0, medio:1, baixo:2};
+    const pa = order[potencialClass(a.potencial)];
+    const pb = order[potencialClass(b.potencial)];
+    if(pa !== pb) return pa - pb;
+    return a.cliente.localeCompare(b.cliente);
+  });
+
+  const totalFiltrado = visible.length;
+  const rotulo = totalFiltrado === 1 ? ' cliente' : ' clientes';
+  countLabel.textContent = totalFiltrado + rotulo + (totalFiltrado !== records.length ? ' (de ' + records.length + ' no total)' : ' na carteira');
+  empty.style.display = records.length === 0 ? 'block' : 'none';
+
+  const labels = fieldLabels();
+  visible.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    let detailRows = '';
+    for(const key of Object.keys(labels)){
+      if(r[key]) detailRows += '<dt>' + labels[key] + '</dt><dd>' + escapeHtml(String(r[key])) + '</dd>';
+    }
+    let histHtml = '';
+    if(r.historico && r.historico.length){
+      histHtml = '<div class="hist">' + r.historico.slice(0,5).map(h =>
+        '<div class="hist-item"><span class="hist-date">' + h.data + '</span> — ' + escapeHtml(h.texto) + '</div>'
+      ).join('') + '</div>';
+    }
+    row.innerHTML =
+      '<div class="row-top">' +
+        '<span class="dot ' + potencialClass(r.potencial) + '"></span>' +
+        '<span class="row-name">' + escapeHtml(r.cliente) + '</span>' +
+        (r.status ? '<span class="tag ' + statusTagClass(r.status) + '">' + escapeHtml(r.status) + '</span>' : '') +
+      '</div>' +
+      (r.proximo_passo ? '<div class="row-sub">' + escapeHtml(r.proximo_passo) + (r.data_proximo_contato ? ' · ' + escapeHtml(r.data_proximo_contato) : '') + '</div>' : '') +
+      '<div class="details" id="details-' + r.id + '">' +
+        (detailRows ? '<dl>' + detailRows + '</dl>' : '') +
+        histHtml +
+        '<div class="row-actions"><button class="del" data-id="' + r.id + '">Remover cliente</button></div>' +
+      '</div>';
+    row.addEventListener('click', (ev) => {
+      if(ev.target.closest('.row-actions')) return;
+      toggleDetails(r.id);
+    });
+    list.appendChild(row);
+    row.querySelector('.del').addEventListener('click', (ev) => excluirCliente(r.id, ev));
+  });
+}
+
+function exportarCSV(){
+  const labels = fieldLabels();
+  const headers = ['Cliente'].concat(Object.values(labels));
+  const rows = records.map(r => [r.cliente].concat(Object.keys(labels).map(k => String(r[k] || '').replace(/"/g,'""'))));
+  const csv = [headers, ...rows].map(row => row.map(c => '"' + c + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'carteira_fertipol.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('sendBtn').addEventListener('click', registrar);
+document.getElementById('entrada').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)) registrar();
+});
+document.getElementById('searchInput').addEventListener('input', (e) => { filterText = e.target.value; render(); });
+document.getElementById('potencialFilter').addEventListener('change', (e) => { potencialFilterValue = e.target.value; render(); });
+document.getElementById('exportBtn').addEventListener('click', exportarCSV);
+
+// ---- Ditado por voz ----
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = document.getElementById('micBtn');
+if(SpeechRecognition){
+  let listening = false, gotResult = false;
+  micBtn.addEventListener('click', () => {
+    if(listening) return;
+    clearError();
+    document.getElementById('confirmMsg').style.display = 'none';
+    gotResult = false;
+    try{
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.addEventListener('result', (e) => {
+        gotResult = true;
+        const texto = e.results[0][0].transcript;
+        const textarea = document.getElementById('entrada');
+        textarea.value = (textarea.value ? textarea.value + ' ' : '') + texto;
+      });
+      recognition.addEventListener('end', () => {
+        listening = false;
+        micBtn.classList.remove('listening');
+        if(!gotResult) showError('Não consegui captar sua voz aqui. Use o microfone do teclado ou digite direto.');
+      });
+      recognition.addEventListener('error', () => {
+        listening = false;
+        micBtn.classList.remove('listening');
+        showError('Não consegui captar sua voz aqui. Use o microfone do teclado ou digite direto.');
+      });
+      listening = true;
+      micBtn.classList.add('listening');
+      recognition.start();
+    }catch(e){
+      listening = false;
+      micBtn.classList.remove('listening');
+      showError('O microfone não está disponível aqui. Use o microfone do teclado ou digite direto.');
+    }
+  });
+}else{
+  micBtn.style.display = 'none';
+}
+
+checkSession();
+</script>
+</body>
+</html>
