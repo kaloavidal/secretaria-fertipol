@@ -301,6 +301,15 @@
     <div class="list" id="catalogoList"></div>
 
     <div class="composer" style="margin-top:26px;">
+      <label>Referências de nutrientes</label>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Preço atual de cada nutriente "puro", usado para dar o peso certo no índice combinado. Pode ajustar a qualquer momento — cada comparação usa o valor mais recente.</p>
+      <div id="referenciasNutrientes"></div>
+      <button class="export-btn" id="salvarReferenciasBtn" style="margin-top:6px;">Salvar referências</button>
+      <div class="error" id="referenciasError" style="display:none;"></div>
+      <div class="confirm" id="referenciasConfirm" style="display:none;"></div>
+    </div>
+
+    <div class="composer" style="margin-top:26px;">
       <label>Comparar formulações</label>
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Marque as formulações do catálogo que quer comparar.</p>
       <div id="selecaoComparar"></div>
@@ -1160,6 +1169,8 @@ document.getElementById('copiarTextoBtn').addEventListener('click', async () => 
 
 // ---- Comparador de formulações ----
 let formulacoes = [];
+let referencias = {};
+let referenciasCarregadas = false;
 let formulacoesCarregadas = false;
 let editingFormulaContext = null;
 let microCounter = 0;
@@ -1207,8 +1218,86 @@ async function loadFormulacoes(){
   formulacoesCarregadas = true;
 }
 
+async function loadReferencias(){
+  const { data, error } = await supabaseClient.from('referencias_nutrientes').select('*');
+  if(error){ referencias = {}; }
+  else{
+    referencias = {};
+    (data || []).forEach(r => { referencias[r.nutriente] = r; });
+  }
+  referenciasCarregadas = true;
+}
+
+function renderReferencias(){
+  const el = document.getElementById('referenciasNutrientes');
+  const nutrientesBase = [['n','N'],['p2o5','P2O5'],['k2o','K2O'],['s','S']];
+  el.innerHTML = '<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;font-size:11px;color:var(--ink-faint);text-transform:uppercase;margin-bottom:6px;"><span>Produto de referência</span><span>R$/ton</span><span>Concentração %</span><span>R$/ponto</span></div>' +
+    nutrientesBase.map(([key,label]) => {
+      const r = referencias[key] || {};
+      const valorPonto = (r.preco_ton && r.concentracao) ? (r.preco_ton / r.concentracao).toFixed(2) : '—';
+      return '<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px;">' +
+        '<input type="text" class="ref-produto" data-nutriente="' + key + '" value="' + escapeHtml(r.produto_referencia || label) + '" style="font-family:inherit;font-size:13px;padding:8px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;">' +
+        '<input type="number" class="ref-preco" data-nutriente="' + key + '" value="' + (r.preco_ton !== undefined && r.preco_ton !== null ? r.preco_ton : '') + '" placeholder="R$/ton" step="any" min="0" style="font-family:inherit;font-size:13px;padding:8px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;">' +
+        '<input type="number" class="ref-conc" data-nutriente="' + key + '" value="' + (r.concentracao !== undefined && r.concentracao !== null ? r.concentracao : '') + '" placeholder="%" step="any" min="0" style="font-family:inherit;font-size:13px;padding:8px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;">' +
+        '<span class="ref-valor-ponto" data-nutriente="' + key + '" style="font-size:12.5px;color:var(--green-deep);font-weight:500;white-space:nowrap;">R$ ' + valorPonto + '</span>' +
+        '</div>';
+    }).join('');
+
+  el.querySelectorAll('.ref-preco, .ref-conc').forEach(inp => inp.addEventListener('input', atualizarValorPontoReferencia));
+}
+
+function atualizarValorPontoReferencia(){
+  document.querySelectorAll('.ref-produto').forEach(prodInp => {
+    const key = prodInp.dataset.nutriente;
+    const preco = parseFloat(document.querySelector('.ref-preco[data-nutriente="' + key + '"]').value);
+    const conc = parseFloat(document.querySelector('.ref-conc[data-nutriente="' + key + '"]').value);
+    const span = document.querySelector('.ref-valor-ponto[data-nutriente="' + key + '"]');
+    span.textContent = (preco && conc) ? ('R$ ' + (preco/conc).toFixed(2)) : '—';
+  });
+}
+
+function lerReferenciasDoFormulario(){
+  const result = {};
+  document.querySelectorAll('.ref-produto').forEach(prodInp => {
+    const key = prodInp.dataset.nutriente;
+    const preco = document.querySelector('.ref-preco[data-nutriente="' + key + '"]').value;
+    const conc = document.querySelector('.ref-conc[data-nutriente="' + key + '"]').value;
+    result[key] = {
+      nutriente: key,
+      produto_referencia: prodInp.value.trim(),
+      preco_ton: preco ? parseFloat(preco) : null,
+      concentracao: conc ? parseFloat(conc) : null
+    };
+  });
+  return result;
+}
+
+async function salvarReferencias(){
+  const dadosForm = lerReferenciasDoFormulario();
+  const btn = document.getElementById('salvarReferenciasBtn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  document.getElementById('referenciasError').style.display = 'none';
+  document.getElementById('referenciasConfirm').style.display = 'none';
+  try{
+    const linhas = Object.values(dadosForm).map(r => ({ ...r, updated_at: new Date().toISOString() }));
+    const { error } = await supabaseClient.from('referencias_nutrientes').upsert(linhas, { onConflict: 'nutriente' });
+    if(error) throw error;
+    referencias = dadosForm;
+    document.getElementById('referenciasConfirm').textContent = 'Referências salvas.';
+    document.getElementById('referenciasConfirm').style.display = 'block';
+  }catch(e){
+    document.getElementById('referenciasError').textContent = 'Não consegui salvar: ' + (e.message || e);
+    document.getElementById('referenciasError').style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Salvar referências';
+  }
+}
+document.getElementById('salvarReferenciasBtn').addEventListener('click', salvarReferencias);
+
 async function renderCatalogo(){
   if(!formulacoesCarregadas) await loadFormulacoes();
+  if(!referenciasCarregadas) await loadReferencias();
+  renderReferencias();
   const list = document.getElementById('catalogoList');
   const count = document.getElementById('catalogoCount');
   count.textContent = formulacoes.length + (formulacoes.length === 1 ? ' formulação no catálogo' : ' formulações no catálogo');
@@ -1379,7 +1468,8 @@ function compararFormulacoes(){
       '</tr>';
   });
 
-  const indiceValores = selecionadas.map(f => {
+  const idxKeysBase = idxKeys.filter(k => !k.startsWith('micro:'));
+  const indiceSimplesValores = selecionadas.map(f => {
     let soma = 0; let temAlgum = false;
     idxKeys.forEach(k => {
       let v;
@@ -1390,15 +1480,50 @@ function compararFormulacoes(){
     if(!temAlgum || !f.preco_ton) return null;
     return f.preco_ton / soma;
   });
-  const validosIdx = indiceValores.filter(v => v !== null);
-  if(validosIdx.length > 0){
-    const minIdx = Math.min(...validosIdx);
-    html += '<tr class="indice"><td>Índice combinado</td>' +
-      indiceValores.map(v => v === null ? '<td>—</td>' : ('<td' + (v === minIdx ? ' class="best"' : '') + '>R$ ' + v.toFixed(2) + '</td>')).join('') +
+  const validosSimples = indiceSimplesValores.filter(v => v !== null);
+  if(validosSimples.length > 0){
+    const minSimples = Math.min(...validosSimples);
+    html += '<tr class="indice"><td>Índice combinado (soma simples)</td>' +
+      indiceSimplesValores.map(v => v === null ? '<td>—</td>' : ('<td' + (v === minSimples ? ' class="best"' : '') + '>R$ ' + v.toFixed(2) + '</td>')).join('') +
       '</tr>';
   }
 
-  html += '</tbody></table>';
+  const refsCompletas = idxKeysBase.filter(k => referencias[k] && referencias[k].preco_ton && referencias[k].concentracao);
+  if(refsCompletas.length > 0){
+    const valorTeoricoValores = selecionadas.map(f => {
+      let soma = 0; let temAlgum = false;
+      refsCompletas.forEach(k => {
+        const percentual = f[k];
+        if(percentual){
+          const refPonto = referencias[k].preco_ton / referencias[k].concentracao;
+          soma += percentual * refPonto;
+          temAlgum = true;
+        }
+      });
+      return temAlgum ? soma : null;
+    });
+    html += '<tr><td>Valor teórico da ton. (nutrientes na referência)</td>' +
+      valorTeoricoValores.map(v => v === null ? '<td>—</td>' : ('<td>R$ ' + v.toFixed(2) + '</td>')).join('') +
+      '</tr>';
+
+    const diferencaValores = selecionadas.map((f,i) => {
+      const vt = valorTeoricoValores[i];
+      if(vt === null || !f.preco_ton) return null;
+      return f.preco_ton - vt;
+    });
+    const validosDif = diferencaValores.filter(v => v !== null);
+    if(validosDif.length > 0){
+      const minDif = Math.min(...validosDif);
+      html += '<tr class="indice"><td>Diferença vs. referência (R$/ton)</td>' +
+        diferencaValores.map(v => v === null ? '<td>—</td>' : ('<td' + (v === minDif ? ' class="best"' : '') + '>' + (v > 0 ? '+' : '') + 'R$ ' + v.toFixed(2) + '</td>')).join('') +
+        '</tr>';
+    }
+    html += '</tbody></table>';
+    html += '<p style="font-size:11.5px;color:var(--ink-faint);margin-top:8px;">Diferença negativa = formulação mais barata que comprar os nutrientes separados na referência. Positiva = está pagando ágio sobre a referência.</p>';
+  }else{
+    html += '</tbody></table>';
+    html += '<p style="font-size:11.5px;color:var(--ink-faint);margin-top:8px;">Preencha os preços de referência acima para ver o valor teórico ponderado e a diferença.</p>';
+  }
   container.innerHTML = html;
 }
 document.getElementById('compararBtn').addEventListener('click', compararFormulacoes);
