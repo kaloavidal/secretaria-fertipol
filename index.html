@@ -155,6 +155,16 @@
   @media (max-width: 480px){
     .item-row{grid-template-columns:1fr 1fr;}
   }
+  .micro-row{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:8px;}
+  .micro-row input{font-family:inherit;font-size:13.5px;padding:8px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;width:100%;}
+  .catalogo-row{border-bottom:1px solid var(--line);padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .catalogo-row .nome{font-weight:500;font-size:14px;flex:1;min-width:140px;}
+  .catalogo-row .specs{font-size:12px;color:var(--ink-faint);}
+  .cmp-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .cmp-table th{text-align:left;font-weight:500;color:var(--ink-faint);font-size:11px;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line);}
+  .cmp-table td{padding:8px 10px;border-bottom:1px solid var(--line);}
+  .cmp-table td.best{background:var(--green-tint);color:var(--green-deep);font-weight:500;border-radius:5px;}
+  .cmp-table tr.indice td{font-weight:500;background:var(--paper);}
 </style>
 </head>
 <body>
@@ -193,6 +203,7 @@
   <div class="tabs">
     <button class="tab-btn active" id="tabClientes">Clientes</button>
     <button class="tab-btn" id="tabProposta">Nova Proposta</button>
+    <button class="tab-btn" id="tabComparador">Comparador</button>
   </div>
 
   <div id="viewClientes">
@@ -258,6 +269,49 @@
       <textarea id="whatsappTexto" style="min-height:180px;"></textarea>
       <button class="send-btn" id="copiarTextoBtn" style="margin-top:10px;">Copiar texto</button>
     </div>
+  </div>
+
+  <div id="viewComparador" style="display:none;">
+    <div class="composer">
+      <div id="editandoFormulaAviso" style="display:none;font-size:12.5px;color:var(--green-deep);background:var(--green-tint);border-radius:7px;padding:8px 12px;margin-bottom:12px;">
+        Editando formulação do catálogo — <button type="button" id="cancelarEdicaoFormulaBtn" style="background:none;border:none;color:var(--green-deep);text-decoration:underline;cursor:pointer;font-size:12.5px;padding:0;">cancelar</button>
+      </div>
+      <label>Adicionar / editar formulação no catálogo</label>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px;">
+        <input type="text" id="formNome" placeholder="Nome (ex: NPK 08-28-16)" style="font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+        <input type="number" id="formPreco" placeholder="R$/ton" min="0" step="any" style="font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px;">
+        <input type="number" id="formN" placeholder="N %" min="0" step="any" style="font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+        <input type="number" id="formP" placeholder="P2O5 %" min="0" step="any" style="font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+        <input type="number" id="formK" placeholder="K2O %" min="0" step="any" style="font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+        <input type="number" id="formS" placeholder="S %" min="0" step="any" style="font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
+      </div>
+      <label style="font-size:12.5px;">Micronutrientes (opcional)</label>
+      <div id="microsFormula"></div>
+      <button type="button" class="export-btn" id="addMicroBtn" style="margin:6px 0 16px;">+ Adicionar micronutriente</button>
+      <div class="composer-row" style="justify-content:flex-start;gap:10px;">
+        <button class="send-btn" id="salvarFormulaBtn">Salvar no catálogo</button>
+      </div>
+      <div class="error" id="formulaError" style="display:none;"></div>
+      <div class="confirm" id="formulaConfirm" style="display:none;"></div>
+    </div>
+
+    <p class="count" id="catalogoCount"></p>
+    <div class="list" id="catalogoList"></div>
+
+    <div class="composer" style="margin-top:26px;">
+      <label>Comparar formulações</label>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Marque as formulações do catálogo que quer comparar.</p>
+      <div id="selecaoComparar"></div>
+
+      <label style="margin-top:16px;display:block;">Nutrientes no índice combinado</label>
+      <div id="nutrientesIndice" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin-bottom:14px;"></div>
+
+      <button class="send-btn" id="compararBtn">Comparar</button>
+    </div>
+
+    <div id="resultadoComparacao" style="margin-top:20px;"></div>
   </div>
 </div>
 
@@ -736,19 +790,22 @@ if(SpeechRecognition){
 }
 
 // ---- Abas ----
-document.getElementById('tabClientes').addEventListener('click', () => {
-  document.getElementById('tabClientes').classList.add('active');
-  document.getElementById('tabProposta').classList.remove('active');
-  document.getElementById('viewClientes').style.display = 'block';
-  document.getElementById('viewProposta').style.display = 'none';
-});
-document.getElementById('tabProposta').addEventListener('click', () => {
-  document.getElementById('tabProposta').classList.add('active');
-  document.getElementById('tabClientes').classList.remove('active');
-  document.getElementById('viewProposta').style.display = 'block';
-  document.getElementById('viewClientes').style.display = 'none';
-  atualizarDatalistClientes();
-});
+const ABAS = {
+  tabClientes: 'viewClientes',
+  tabProposta: 'viewProposta',
+  tabComparador: 'viewComparador'
+};
+function mostrarAba(tabId){
+  Object.keys(ABAS).forEach(tid => {
+    document.getElementById(tid).classList.toggle('active', tid === tabId);
+    document.getElementById(ABAS[tid]).style.display = (tid === tabId) ? 'block' : 'none';
+  });
+  if(tabId === 'tabProposta') atualizarDatalistClientes();
+  if(tabId === 'tabComparador') renderCatalogo();
+}
+document.getElementById('tabClientes').addEventListener('click', () => mostrarAba('tabClientes'));
+document.getElementById('tabProposta').addEventListener('click', () => mostrarAba('tabProposta'));
+document.getElementById('tabComparador').addEventListener('click', () => mostrarAba('tabComparador'));
 
 function atualizarDatalistClientes(){
   const dl = document.getElementById('listaClientesDatalist');
@@ -1100,6 +1157,251 @@ document.getElementById('copiarTextoBtn').addEventListener('click', async () => 
     showPropostaError('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.');
   }
 });
+
+// ---- Comparador de formulações ----
+let formulacoes = [];
+let formulacoesCarregadas = false;
+let editingFormulaContext = null;
+let microCounter = 0;
+
+function addMicroRow(nome, valor){
+  microCounter++;
+  const id = 'micro' + microCounter;
+  const div = document.createElement('div');
+  div.className = 'micro-row';
+  div.dataset.id = id;
+  div.innerHTML =
+    '<input type="text" placeholder="Ex: Zn" class="micro-nome" value="' + (nome ? escapeHtml(nome) : '') + '">' +
+    '<input type="number" placeholder="%" step="any" min="0" class="micro-valor" value="' + (valor !== undefined && valor !== null ? valor : '') + '">' +
+    '<button type="button" class="rm-item">✕</button>';
+  document.getElementById('microsFormula').appendChild(div);
+  div.querySelector('.rm-item').addEventListener('click', () => div.remove());
+}
+document.getElementById('addMicroBtn').addEventListener('click', () => addMicroRow());
+
+function lerMicros(){
+  const micros = {};
+  document.querySelectorAll('#microsFormula .micro-row').forEach(row => {
+    const nome = row.querySelector('.micro-nome').value.trim();
+    const valor = row.querySelector('.micro-valor').value;
+    if(nome && valor) micros[nome] = parseFloat(valor);
+  });
+  return micros;
+}
+
+function showFormulaError(msg){
+  const el = document.getElementById('formulaError');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('formulaConfirm').style.display = 'none';
+}
+function showFormulaConfirm(msg){
+  const el = document.getElementById('formulaConfirm');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('formulaError').style.display = 'none';
+}
+
+async function loadFormulacoes(){
+  const { data, error } = await supabaseClient.from('formulacoes').select('*').order('nome');
+  if(error){ showFormulaError('Não consegui carregar o catálogo: ' + error.message); formulacoes = []; }
+  else { formulacoes = data || []; }
+  formulacoesCarregadas = true;
+}
+
+async function renderCatalogo(){
+  if(!formulacoesCarregadas) await loadFormulacoes();
+  const list = document.getElementById('catalogoList');
+  const count = document.getElementById('catalogoCount');
+  count.textContent = formulacoes.length + (formulacoes.length === 1 ? ' formulação no catálogo' : ' formulações no catálogo');
+  list.innerHTML = '';
+  formulacoes.forEach(f => {
+    const microsTxt = Object.keys(f.micros || {}).map(k => k + ' ' + f.micros[k] + '%').join(', ');
+    const specs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null, microsTxt || null]
+      .filter(Boolean).join(' · ');
+    const row = document.createElement('div');
+    row.className = 'catalogo-row';
+    row.innerHTML =
+      '<span class="nome">' + escapeHtml(f.nome) + (f.preco_ton ? ' — R$ ' + Number(f.preco_ton).toFixed(2) + '/ton' : '') + '<br><span class="specs">' + escapeHtml(specs) + '</span></span>' +
+      '<span style="display:flex;gap:8px;">' +
+        '<button type="button" class="print-proposta-btn" data-edit-formula="' + f.id + '">Editar</button>' +
+        '<button type="button" class="print-proposta-btn" data-del-formula="' + f.id + '" style="color:var(--danger);">Remover</button>' +
+      '</span>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-edit-formula]').forEach(btn => btn.addEventListener('click', () => editarFormula(btn.dataset.editFormula)));
+  list.querySelectorAll('[data-del-formula]').forEach(btn => btn.addEventListener('click', () => excluirFormula(btn.dataset.delFormula)));
+  renderSelecaoComparar();
+  renderNutrientesIndice();
+}
+
+function renderSelecaoComparar(){
+  const el = document.getElementById('selecaoComparar');
+  if(formulacoes.length === 0){ el.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Cadastre formulações no catálogo acima para poder comparar.</p>'; return; }
+  el.innerHTML = formulacoes.map(f =>
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:8px;"><input type="checkbox" class="cmp-check" value="' + f.id + '"> ' + escapeHtml(f.nome) + '</label>'
+  ).join('');
+}
+
+function renderNutrientesIndice(){
+  const el = document.getElementById('nutrientesIndice');
+  const baseNutrientes = [['n','N'],['p2o5','P2O5'],['k2o','K2O'],['s','S']];
+  const microsSet = new Set();
+  formulacoes.forEach(f => Object.keys(f.micros || {}).forEach(k => microsSet.add(k)));
+  let html = baseNutrientes.map(([key,label]) =>
+    '<label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" class="idx-check" value="' + key + '" checked> ' + label + '</label>'
+  ).join('');
+  html += Array.from(microsSet).map(m =>
+    '<label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" class="idx-check" value="micro:' + escapeHtml(m) + '"> ' + escapeHtml(m) + '</label>'
+  ).join('');
+  el.innerHTML = html;
+}
+
+async function salvarFormula(){
+  const nome = document.getElementById('formNome').value.trim();
+  document.getElementById('formulaError').style.display = 'none';
+  document.getElementById('formulaConfirm').style.display = 'none';
+  if(!nome){ showFormulaError('Informe o nome da formulação.'); return; }
+
+  const preco = document.getElementById('formPreco').value;
+  const n = document.getElementById('formN').value;
+  const p = document.getElementById('formP').value;
+  const k = document.getElementById('formK').value;
+  const s = document.getElementById('formS').value;
+  const micros = lerMicros();
+
+  const payload = {
+    nome,
+    preco_ton: preco ? parseFloat(preco) : null,
+    n: n ? parseFloat(n) : null,
+    p2o5: p ? parseFloat(p) : null,
+    k2o: k ? parseFloat(k) : null,
+    s: s ? parseFloat(s) : null,
+    micros
+  };
+
+  const btn = document.getElementById('salvarFormulaBtn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try{
+    if(editingFormulaContext){
+      const { error } = await supabaseClient.from('formulacoes')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('id', editingFormulaContext);
+      if(error) throw error;
+      showFormulaConfirm('Formulação atualizada.');
+    }else{
+      const { error } = await supabaseClient.from('formulacoes').insert(payload);
+      if(error) throw error;
+      showFormulaConfirm('Formulação adicionada ao catálogo.');
+    }
+    limparFormFormula();
+    formulacoesCarregadas = false;
+    await renderCatalogo();
+  }catch(e){
+    showFormulaError('Não consegui salvar: ' + (e.message || e));
+  }finally{
+    btn.disabled = false; btn.textContent = 'Salvar no catálogo';
+  }
+}
+document.getElementById('salvarFormulaBtn').addEventListener('click', salvarFormula);
+
+function limparFormFormula(){
+  document.getElementById('formNome').value = '';
+  document.getElementById('formPreco').value = '';
+  document.getElementById('formN').value = '';
+  document.getElementById('formP').value = '';
+  document.getElementById('formK').value = '';
+  document.getElementById('formS').value = '';
+  document.getElementById('microsFormula').innerHTML = '';
+  editingFormulaContext = null;
+  document.getElementById('editandoFormulaAviso').style.display = 'none';
+  document.getElementById('salvarFormulaBtn').textContent = 'Salvar no catálogo';
+}
+document.getElementById('cancelarEdicaoFormulaBtn').addEventListener('click', limparFormFormula);
+
+function editarFormula(id){
+  const f = formulacoes.find(x => x.id === id);
+  if(!f) return;
+  editingFormulaContext = id;
+  document.getElementById('formNome').value = f.nome || '';
+  document.getElementById('formPreco').value = f.preco_ton !== null && f.preco_ton !== undefined ? f.preco_ton : '';
+  document.getElementById('formN').value = f.n !== null && f.n !== undefined ? f.n : '';
+  document.getElementById('formP').value = f.p2o5 !== null && f.p2o5 !== undefined ? f.p2o5 : '';
+  document.getElementById('formK').value = f.k2o !== null && f.k2o !== undefined ? f.k2o : '';
+  document.getElementById('formS').value = f.s !== null && f.s !== undefined ? f.s : '';
+  document.getElementById('microsFormula').innerHTML = '';
+  Object.keys(f.micros || {}).forEach(k => addMicroRow(k, f.micros[k]));
+  document.getElementById('editandoFormulaAviso').style.display = 'block';
+  document.getElementById('salvarFormulaBtn').textContent = 'Salvar alterações';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function excluirFormula(id){
+  const { error } = await supabaseClient.from('formulacoes').delete().eq('id', id);
+  if(error){ showFormulaError('Não consegui remover: ' + error.message); return; }
+  formulacoesCarregadas = false;
+  await renderCatalogo();
+}
+
+function custoPorPonto(precoTon, percentual){
+  if(precoTon === null || precoTon === undefined || !percentual) return null;
+  return precoTon / percentual;
+}
+
+function compararFormulacoes(){
+  const idsSelecionados = Array.from(document.querySelectorAll('.cmp-check:checked')).map(c => c.value);
+  const container = document.getElementById('resultadoComparacao');
+  if(idsSelecionados.length < 2){
+    container.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Selecione pelo menos duas formulações para comparar.</p>';
+    return;
+  }
+  const selecionadas = formulacoes.filter(f => idsSelecionados.includes(f.id));
+  const idxKeys = Array.from(document.querySelectorAll('.idx-check:checked')).map(c => c.value);
+
+  const microsSet = new Set();
+  selecionadas.forEach(f => Object.keys(f.micros || {}).forEach(k => microsSet.add(k)));
+
+  const linhasNutrientes = [
+    { label: 'N', get: f => f.n },
+    { label: 'P2O5', get: f => f.p2o5 },
+    { label: 'K2O', get: f => f.k2o },
+    { label: 'S', get: f => f.s }
+  ].concat(Array.from(microsSet).map(m => ({ label: m, get: f => (f.micros || {})[m] })));
+
+  let html = '<table class="cmp-table"><thead><tr><th>Nutriente (R$/ponto)</th>' +
+    selecionadas.map(f => '<th>' + escapeHtml(f.nome) + '</th>').join('') + '</tr></thead><tbody>';
+
+  linhasNutrientes.forEach(linha => {
+    const valores = selecionadas.map(f => custoPorPonto(f.preco_ton, linha.get(f)));
+    const validos = valores.filter(v => v !== null);
+    if(validos.length === 0) return;
+    const min = Math.min(...validos);
+    html += '<tr><td>' + escapeHtml(linha.label) + '</td>' +
+      valores.map(v => v === null ? '<td>—</td>' : ('<td' + (v === min ? ' class="best"' : '') + '>R$ ' + v.toFixed(2) + '</td>')).join('') +
+      '</tr>';
+  });
+
+  const indiceValores = selecionadas.map(f => {
+    let soma = 0; let temAlgum = false;
+    idxKeys.forEach(k => {
+      let v;
+      if(k.startsWith('micro:')) v = (f.micros || {})[k.slice(6)];
+      else v = f[k];
+      if(v){ soma += v; temAlgum = true; }
+    });
+    if(!temAlgum || !f.preco_ton) return null;
+    return f.preco_ton / soma;
+  });
+  const validosIdx = indiceValores.filter(v => v !== null);
+  if(validosIdx.length > 0){
+    const minIdx = Math.min(...validosIdx);
+    html += '<tr class="indice"><td>Índice combinado</td>' +
+      indiceValores.map(v => v === null ? '<td>—</td>' : ('<td' + (v === minIdx ? ' class="best"' : '') + '>R$ ' + v.toFixed(2) + '</td>')).join('') +
+      '</tr>';
+  }
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+document.getElementById('compararBtn').addEventListener('click', compararFormulacoes);
 
 checkSession();
 
