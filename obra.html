@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custos de Obra</title>
+<meta name="apple-mobile-web-app-title" content="Custos de Obra">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #EFEDE6;
+    --paper: #F9F8F4;
+    --ink: #2B2A26;
+    --ink-soft: #615F58;
+    --ink-faint: #9A9890;
+    --line: #DCDACF;
+    --line-strong: #C4C1B3;
+    --brick: #8C4A32;
+    --brick-deep: #6B3A26;
+    --brick-tint: #EFDCD3;
+    --danger: #A13B2C;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);}
+  .app{font-family:'IBM Plex Sans',sans-serif;color:var(--ink);padding:28px 20px 60px;max-width:760px;margin:0 auto;}
+  h1{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  header{margin-bottom:22px;}
+  header h1{font-size:24px;color:var(--brick-deep);}
+  header p{font-size:13.5px;color:var(--ink-soft);margin:6px 0 0;}
+
+  .login-wrap{max-width:340px;margin:90px auto;padding:0 20px;font-family:'IBM Plex Sans',sans-serif;}
+  .login-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;}
+  .login-card h1{font-size:20px;color:var(--brick-deep);text-align:center;margin-bottom:6px;}
+  .login-card p{font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 18px;}
+  .login-card input{width:100%;font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;margin-bottom:10px;background:#fff;}
+  .login-card input:focus{outline:none;border-color:var(--brick);box-shadow:0 0 0 3px var(--brick-tint);}
+  .login-card button{width:100%;background:var(--brick);color:#fff;border:none;border-radius:7px;padding:11px;font-size:14.5px;font-family:inherit;font-weight:500;cursor:pointer;margin-top:4px;}
+  .login-card button:hover{background:var(--brick-deep);}
+  .login-card button:disabled{opacity:.6;}
+  .login-error{font-size:13px;color:var(--danger);margin-top:10px;}
+
+  .composer{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px;}
+  label{font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;}
+  input, select{font-family:inherit;}
+  input[type=text], input[type=date], input[type=number], select{
+    width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;
+  }
+  input:focus, select:focus{outline:none;border-color:var(--brick);}
+  .field{margin-bottom:10px;}
+  .grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+  .grid3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media (max-width:600px){ .grid4{grid-template-columns:1fr 1fr;} .grid3{grid-template-columns:1fr 1fr;} }
+  .send-btn{background:var(--brick);color:#fff;border:none;border-radius:7px;padding:10px 18px;font-size:14px;font-family:inherit;font-weight:500;cursor:pointer;}
+  .send-btn:hover{background:var(--brick-deep);}
+  .send-btn:disabled{opacity:.55;}
+  .export-btn{font-family:inherit;font-size:13px;color:var(--ink-soft);background:transparent;border:1px solid var(--line-strong);border-radius:7px;padding:9px 14px;cursor:pointer;}
+  .export-btn:hover{background:var(--bg);}
+  .error{font-size:13px;color:var(--danger);margin-top:8px;}
+  .confirm{font-size:13.5px;color:var(--brick-deep);background:var(--brick-tint);border-radius:7px;padding:8px 12px;margin-top:10px;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:20px 0 8px;flex-wrap:wrap;}
+  .count{font-size:12.5px;color:var(--ink-faint);margin:0;}
+  .total{font-size:16px;font-weight:500;color:var(--brick-deep);margin:0;}
+  .categorias{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;}
+  select.filter{flex:0 0 auto;min-width:150px;font-size:13px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;background:var(--paper);}
+
+  .list{border-top:1px solid var(--line);}
+  .row{border-bottom:1px solid var(--line);padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .row .nome{font-weight:500;font-size:14px;flex:1;min-width:160px;}
+  .row .specs{font-size:12px;color:var(--ink-faint);}
+  .row .tag{font-size:10.5px;padding:2px 7px;border-radius:20px;background:var(--brick-tint);color:var(--brick-deep);margin-right:6px;}
+  .row .valor{font-size:14px;font-weight:500;color:var(--brick-deep);white-space:nowrap;}
+  .row-actions button{font-family:inherit;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink-soft);}
+  .row-actions button.del{color:var(--danger);border-color:#E3C3BB;}
+  .empty{text-align:center;padding:40px 20px;color:var(--ink-faint);font-size:14px;}
+  .logout-btn{font-family:inherit;font-size:12.5px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h1>Custos de Obra</h1>
+    <p>Entre com seu login.</p>
+    <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+    <button id="loginBtn">Entrar</button>
+    <div class="login-error" id="loginError" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+  <header>
+    <h1>Custos de Obra</h1>
+    <p>Controle dos gastos da obra — geral, casa e mão de obra.</p>
+  </header>
+
+  <div class="composer" id="obraFormPanel">
+    <div id="editandoObraAviso" style="display:none;font-size:12.5px;color:var(--brick-deep);background:var(--brick-tint);border-radius:7px;padding:8px 12px;margin-bottom:12px;">Editando gasto existente</div>
+
+    <div class="grid3 field">
+      <div><label>Produto/Serviço</label><input type="text" id="obraProduto" placeholder="Ex: Tijolos ecológicos"></div>
+      <div><label>Grupo</label>
+        <select id="obraGrupo">
+          <option value="Gerais">Gerais</option>
+          <option value="Obra Casa">Obra Casa</option>
+          <option value="Mão de Obra - Casa">Mão de Obra - Casa</option>
+        </select>
+      </div>
+      <div><label>Centro de custo</label>
+        <select id="obraCentroCusto">
+          <option value="">—</option>
+          <option value="GERAL">Geral</option>
+          <option value="OBRAS">Obras</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid2 field">
+      <div><label>Origem (fornecedor/pessoa)</label><input type="text" id="obraOrigem" placeholder="Ex: Mercado Livre"></div>
+      <div><label>Data</label><input type="date" id="obraData"></div>
+    </div>
+
+    <div class="grid4 field">
+      <div><label>Volume</label><input type="number" id="obraVolume" min="0" step="any" value="1"></div>
+      <div><label>Valor unitário (R$)</label><input type="number" id="obraValorUnit" min="0" step="any"></div>
+      <div><label>Valor total (R$)</label><input type="number" id="obraValorTotal" min="0" step="any"></div>
+      <div><label>Dias trabalhados</label><input type="number" id="obraDias" min="0" step="any"></div>
+    </div>
+
+    <div class="grid2 field">
+      <div><label>Fonte pagadora</label>
+        <input type="text" id="obraFonte" list="obraFontesDatalist" placeholder="Ex: Nubank PJ">
+        <datalist id="obraFontesDatalist">
+          <option value="CARTÃO PJ"><option value="CARTÃO PF"><option value="CARTÃO CEF PJ">
+          <option value="CARTÃO CRESOL PJ"><option value="CEF PJ"><option value="NUBANK PJ">
+          <option value="PIX PJ"><option value="PIX PJ NUBANK"><option value="BOLETO">
+          <option value="A PAGAR"><option value="CASH - SAQUE NU BANK">
+        </datalist>
+      </div>
+      <div><label>Observações</label><input type="text" id="obraObs" placeholder="Opcional"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="send-btn" id="salvarObraBtn">Adicionar gasto</button>
+      <button class="export-btn" id="cancelarObraBtn" style="display:none;">Cancelar edição</button>
+    </div>
+    <div class="error" id="obraError" style="display:none;"></div>
+    <div class="confirm" id="obraConfirm" style="display:none;"></div>
+  </div>
+
+  <div class="toolbar">
+    <select class="filter" id="obraGrupoFilter">
+      <option value="">Todos os grupos</option>
+      <option value="Gerais">Gerais</option>
+      <option value="Obra Casa">Obra Casa</option>
+      <option value="Mão de Obra - Casa">Mão de Obra - Casa</option>
+    </select>
+    <p class="total" id="obraTotal"></p>
+  </div>
+  <p class="count" id="obraCount"></p>
+  <div class="categorias" id="obraResumoCategorias"></div>
+  <div class="list" id="obraList"></div>
+  <div class="empty" id="obraEmpty" style="display:none;">Nenhum gasto registrado ainda.</div>
+
+  <div style="margin-top:24px;text-align:center;">
+    <button class="logout-btn" id="logoutBtn">Sair</button>
+  </div>
+</div>
+
+<script>
+try {
+
+if(!window.supabase){ throw new Error('A biblioteca do Supabase não carregou.'); }
+const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+async function checkSession(){
+  const { data } = await supabaseClient.auth.getSession();
+  if(data.session) showApp(); else showLogin();
+}
+function showLogin(){
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('mainApp').style.display = 'none';
+}
+function showApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  renderObra();
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(error){ errEl.textContent = 'E-mail ou senha incorretos.'; errEl.style.display = 'block'; return; }
+  showApp();
+});
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  showLogin();
+});
+
+// ---- Custos de obra ----
+let obraCustos = [];
+let editingObraId = null;
+let grupoFilterValue = '';
+
+function showObraError(msg){
+  const el = document.getElementById('obraError');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('obraConfirm').style.display = 'none';
+}
+function showObraConfirm(msg){
+  const el = document.getElementById('obraConfirm');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('obraError').style.display = 'none';
+}
+
+async function loadObraCustos(){
+  const { data, error } = await supabaseClient.from('obra_custos').select('*').order('data', { ascending: false });
+  if(error){ showObraError('Não consegui carregar: ' + error.message); obraCustos = []; }
+  else { obraCustos = data || []; }
+}
+
+// recalcula valor total automaticamente quando volume e valor unitário estão preenchidos
+function recalcularValorTotal(){
+  const vol = parseFloat(document.getElementById('obraVolume').value);
+  const unit = parseFloat(document.getElementById('obraValorUnit').value);
+  if(!isNaN(vol) && !isNaN(unit)){
+    document.getElementById('obraValorTotal').value = (vol * unit).toFixed(2);
+  }
+}
+document.getElementById('obraVolume').addEventListener('input', recalcularValorTotal);
+document.getElementById('obraValorUnit').addEventListener('input', recalcularValorTotal);
+
+async function renderObra(){
+  await loadObraCustos();
+  const list = document.getElementById('obraList');
+  const empty = document.getElementById('obraEmpty');
+  const count = document.getElementById('obraCount');
+  const totalEl = document.getElementById('obraTotal');
+  const resumoEl = document.getElementById('obraResumoCategorias');
+
+  const visiveis = grupoFilterValue ? obraCustos.filter(c => c.grupo === grupoFilterValue) : obraCustos;
+
+  list.innerHTML = '';
+  empty.style.display = visiveis.length === 0 ? 'block' : 'none';
+  count.textContent = visiveis.length + (visiveis.length === 1 ? ' gasto' : ' gastos') + (grupoFilterValue ? ' (filtrado)' : '');
+
+  const total = visiveis.reduce((s, c) => s + (parseFloat(c.valor_total) || 0), 0);
+  totalEl.textContent = 'Total: R$ ' + total.toFixed(2);
+
+  const porGrupo = {};
+  obraCustos.forEach(c => {
+    const g = c.grupo || 'Sem grupo';
+    porGrupo[g] = (porGrupo[g] || 0) + (parseFloat(c.valor_total) || 0);
+  });
+  resumoEl.textContent = Object.keys(porGrupo).map(g => g + ': R$ ' + porGrupo[g].toFixed(2)).join('  ·  ');
+
+  visiveis.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const specs = [c.data || '', c.origem || '', c.fonte_pagadora || ''].filter(Boolean).join(' · ');
+    row.innerHTML =
+      '<span class="nome">' + (c.grupo ? '<span class="tag">' + escapeHtml(c.grupo) + '</span>' : '') + escapeHtml(c.produto_servico || '(sem descrição)') + '<br><span class="specs">' + escapeHtml(specs) + '</span></span>' +
+      '<span style="display:flex;align-items:center;gap:10px;">' +
+        '<span class="valor">R$ ' + Number(c.valor_total || 0).toFixed(2) + '</span>' +
+        '<span class="row-actions"><button data-edit-obra="' + c.id + '">Editar</button> <button class="del" data-del-obra="' + c.id + '">Remover</button></span>' +
+      '</span>';
+    list.appendChild(row);
+  });
+  list.querySelectorAll('[data-edit-obra]').forEach(btn => btn.addEventListener('click', () => editarObraCusto(btn.dataset.editObra)));
+  list.querySelectorAll('[data-del-obra]').forEach(btn => btn.addEventListener('click', () => excluirObraCusto(btn.dataset.delObra)));
+}
+document.getElementById('obraGrupoFilter').addEventListener('change', (e) => { grupoFilterValue = e.target.value; renderObra(); });
+
+function limparFormObra(){
+  document.getElementById('obraProduto').value = '';
+  document.getElementById('obraGrupo').value = 'Gerais';
+  document.getElementById('obraCentroCusto').value = '';
+  document.getElementById('obraOrigem').value = '';
+  document.getElementById('obraData').value = '';
+  document.getElementById('obraVolume').value = '1';
+  document.getElementById('obraValorUnit').value = '';
+  document.getElementById('obraValorTotal').value = '';
+  document.getElementById('obraDias').value = '';
+  document.getElementById('obraFonte').value = '';
+  document.getElementById('obraObs').value = '';
+  editingObraId = null;
+  document.getElementById('editandoObraAviso').style.display = 'none';
+  document.getElementById('cancelarObraBtn').style.display = 'none';
+  document.getElementById('salvarObraBtn').textContent = 'Adicionar gasto';
+}
+document.getElementById('cancelarObraBtn').addEventListener('click', limparFormObra);
+
+function editarObraCusto(id){
+  const c = obraCustos.find(x => x.id === id);
+  if(!c) return;
+  editingObraId = id;
+  document.getElementById('obraProduto').value = c.produto_servico || '';
+  document.getElementById('obraGrupo').value = c.grupo || 'Gerais';
+  document.getElementById('obraCentroCusto').value = c.centro_de_custo || '';
+  document.getElementById('obraOrigem').value = c.origem || '';
+  document.getElementById('obraData').value = c.data || '';
+  document.getElementById('obraVolume').value = c.volume !== null && c.volume !== undefined ? c.volume : '';
+  document.getElementById('obraValorUnit').value = c.valor_unitario !== null && c.valor_unitario !== undefined ? c.valor_unitario : '';
+  document.getElementById('obraValorTotal').value = c.valor_total !== null && c.valor_total !== undefined ? c.valor_total : '';
+  document.getElementById('obraDias').value = c.dias_trabalhados !== null && c.dias_trabalhados !== undefined ? c.dias_trabalhados : '';
+  document.getElementById('obraFonte').value = c.fonte_pagadora || '';
+  document.getElementById('obraObs').value = c.observacoes || '';
+  document.getElementById('editandoObraAviso').style.display = 'block';
+  document.getElementById('cancelarObraBtn').style.display = 'inline-block';
+  document.getElementById('salvarObraBtn').textContent = 'Salvar alterações';
+  document.getElementById('obraFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function excluirObraCusto(id){
+  const { error } = await supabaseClient.from('obra_custos').delete().eq('id', id);
+  if(error){ showObraError('Não consegui remover: ' + error.message); return; }
+  await renderObra();
+}
+
+async function salvarObraCusto(){
+  const produto = document.getElementById('obraProduto').value.trim();
+  const grupo = document.getElementById('obraGrupo').value;
+  const centro = document.getElementById('obraCentroCusto').value;
+  const origem = document.getElementById('obraOrigem').value.trim();
+  const data = document.getElementById('obraData').value;
+  const volume = document.getElementById('obraVolume').value;
+  const valorUnit = document.getElementById('obraValorUnit').value;
+  const valorTotal = document.getElementById('obraValorTotal').value;
+  const dias = document.getElementById('obraDias').value;
+  const fonte = document.getElementById('obraFonte').value.trim();
+  const obs = document.getElementById('obraObs').value.trim();
+
+  document.getElementById('obraError').style.display = 'none';
+  document.getElementById('obraConfirm').style.display = 'none';
+  if(!produto){ showObraError('Informe o produto/serviço.'); return; }
+  if(!valorTotal){ showObraError('Informe o valor total (ou preencha volume + valor unitário).'); return; }
+
+  const payload = {
+    grupo, centro_de_custo: centro || null, produto_servico: produto, origem: origem || null,
+    volume: volume ? parseFloat(volume) : null,
+    valor_unitario: valorUnit ? parseFloat(valorUnit) : null,
+    valor_total: parseFloat(valorTotal),
+    fonte_pagadora: fonte || null, data: data || null,
+    dias_trabalhados: dias ? parseFloat(dias) : null,
+    observacoes: obs || null
+  };
+
+  const btn = document.getElementById('salvarObraBtn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try{
+    if(editingObraId){
+      const { error } = await supabaseClient.from('obra_custos').update(payload).eq('id', editingObraId);
+      if(error) throw error;
+      showObraConfirm('Gasto atualizado.');
+    }else{
+      const { error } = await supabaseClient.from('obra_custos').insert(payload);
+      if(error) throw error;
+      showObraConfirm('Gasto adicionado.');
+    }
+    limparFormObra();
+    await renderObra();
+  }catch(e){
+    showObraError('Não consegui salvar: ' + (e.message || e));
+  }finally{
+    btn.disabled = false; btn.textContent = editingObraId ? 'Salvar alterações' : 'Adicionar gasto';
+  }
+}
+document.getElementById('salvarObraBtn').addEventListener('click', salvarObraCusto);
+
+checkSession();
+
+} catch (initError) {
+  const errEl = document.getElementById('loginError');
+  if(errEl){ errEl.textContent = 'Erro ao carregar: ' + initError.message; errEl.style.display = 'block'; }
+  console.error(initError);
+}
+</script>
+</body>
+</html>
