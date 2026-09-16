@@ -215,9 +215,35 @@
         <option value="medio">Potencial médio</option>
         <option value="baixo">Potencial baixo</option>
       </select>
+      <select class="search" id="statusFilter" style="flex:0 0 auto;min-width:170px;">
+        <option value="">Todos os status</option>
+        <option value="Não contatado">Não contatado</option>
+        <option value="Reativação - 1º contato feito">Reativação - 1º contato feito</option>
+        <option value="Em negociação">Em negociação</option>
+        <option value="Aguardando decisão">Aguardando decisão</option>
+        <option value="Fechado - Comprou">Fechado - Comprou</option>
+        <option value="Perdido - Foi p/ concorrente">Perdido - Foi p/ concorrente</option>
+        <option value="Perdido - Sem interesse">Perdido - Sem interesse</option>
+        <option value="Aguardando próxima safra">Aguardando próxima safra</option>
+      </select>
+      <button class="send-btn" id="novoClienteBtn">+ Novo cliente</button>
       <button class="export-btn" id="exportBtn">Exportar CSV</button>
       <button class="logout-btn" id="logoutBtn">Sair</button>
     </div>
+
+    <div class="composer" id="clienteFormPanel" style="display:none;">
+      <div id="editandoClienteAviso" style="display:none;font-size:12.5px;color:var(--green-deep);background:var(--green-tint);border-radius:7px;padding:8px 12px;margin-bottom:12px;">Editando cliente existente</div>
+      <label for="clienteFormNome">Cliente</label>
+      <input type="text" id="clienteFormNome" placeholder="Nome do cliente/fazenda" style="width:100%;font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;margin-bottom:14px;">
+      <div id="clienteFormFields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+      <div class="composer-row" style="justify-content:flex-start;gap:10px;">
+        <button class="send-btn" id="salvarClienteManualBtn">Salvar cliente</button>
+        <button class="export-btn" id="cancelarClienteManualBtn">Cancelar</button>
+      </div>
+      <div class="error" id="clienteFormError" style="display:none;"></div>
+      <div class="confirm" id="clienteFormConfirm" style="display:none;"></div>
+    </div>
+
     <p class="count" id="countLabel"></p>
     <div class="loading" id="loadingState" style="display:none;">Carregando…</div>
     <div class="list" id="list"></div>
@@ -352,6 +378,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let records = [];
 let filterText = '';
 let potencialFilterValue = '';
+let statusFilterValue = '';
 let printRegistry = [];
 let editingContext = null;
 const ASSINATURA = 'Eng. Agr. Kaloã Vidal — Representante Fertipol — (67) 99642-6423';
@@ -551,6 +578,107 @@ function toggleDetails(id){
   document.getElementById('details-' + id).classList.toggle('open');
 }
 
+// ---- Formulário manual de cliente (adicionar/editar) ----
+let editingClienteId = null;
+
+const CAMPOS_SELECT = {
+  potencial: ['', 'Alto', 'Médio', 'Baixo'],
+  status: ['', 'Não contatado', 'Reativação - 1º contato feito', 'Em negociação', 'Aguardando decisão', 'Fechado - Comprou', 'Perdido - Foi p/ concorrente', 'Perdido - Sem interesse', 'Aguardando próxima safra'],
+  comprou_safra_atual: ['', 'Sim', 'Não', 'Em decisão'],
+  forma_pagamento: ['', 'À vista', 'Prazo/Barter na colheita', 'Financiamento próprio', 'Outro'],
+  origem_contato: ['', 'Carteira antiga', 'Indicação', 'Prospecção nova', 'Outro']
+};
+
+function gerarCamposFormularioCliente(){
+  const labels = fieldLabels();
+  const container = document.getElementById('clienteFormFields');
+  container.innerHTML = Object.keys(labels).map(key => {
+    const inputId = 'cf_' + key;
+    if(CAMPOS_SELECT[key]){
+      const opts = CAMPOS_SELECT[key].map(v => '<option value="' + escapeHtml(v) + '">' + (v || '—') + '</option>').join('');
+      return '<div><label style="font-size:12px;">' + escapeHtml(labels[key]) + '</label><select id="' + inputId + '" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;">' + opts + '</select></div>';
+    }
+    return '<div><label style="font-size:12px;">' + escapeHtml(labels[key]) + '</label><input type="text" id="' + inputId + '" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>';
+  }).join('');
+}
+
+function abrirNovoCliente(){
+  editingClienteId = null;
+  document.getElementById('clienteFormPanel').style.display = 'block';
+  document.getElementById('editandoClienteAviso').style.display = 'none';
+  document.getElementById('clienteFormNome').readOnly = false;
+  document.getElementById('clienteFormNome').value = '';
+  gerarCamposFormularioCliente();
+  document.getElementById('salvarClienteManualBtn').textContent = 'Salvar cliente';
+  document.getElementById('clienteFormError').style.display = 'none';
+  document.getElementById('clienteFormConfirm').style.display = 'none';
+  document.getElementById('clienteFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+document.getElementById('novoClienteBtn').addEventListener('click', abrirNovoCliente);
+
+function abrirEditarCliente(r){
+  editingClienteId = r.id;
+  document.getElementById('clienteFormPanel').style.display = 'block';
+  document.getElementById('editandoClienteAviso').style.display = 'block';
+  document.getElementById('clienteFormNome').value = r.cliente || '';
+  gerarCamposFormularioCliente();
+  Object.keys(fieldLabels()).forEach(key => {
+    const el = document.getElementById('cf_' + key);
+    if(el) el.value = r[key] || '';
+  });
+  document.getElementById('salvarClienteManualBtn').textContent = 'Salvar alterações';
+  document.getElementById('clienteFormError').style.display = 'none';
+  document.getElementById('clienteFormConfirm').style.display = 'none';
+  document.getElementById('clienteFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function fecharFormularioCliente(){
+  document.getElementById('clienteFormPanel').style.display = 'none';
+  editingClienteId = null;
+}
+document.getElementById('cancelarClienteManualBtn').addEventListener('click', fecharFormularioCliente);
+
+async function salvarClienteManual(){
+  const nome = document.getElementById('clienteFormNome').value.trim();
+  const errEl = document.getElementById('clienteFormError');
+  const confEl = document.getElementById('clienteFormConfirm');
+  errEl.style.display = 'none'; confEl.style.display = 'none';
+  if(!nome){ errEl.textContent = 'Informe o nome do cliente.'; errEl.style.display = 'block'; return; }
+
+  const payload = { cliente: nome };
+  Object.keys(fieldLabels()).forEach(key => {
+    const el = document.getElementById('cf_' + key);
+    payload[key] = el ? el.value : '';
+  });
+
+  const btn = document.getElementById('salvarClienteManualBtn');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try{
+    if(editingClienteId){
+      const { error } = await supabaseClient.from('clientes')
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq('id', editingClienteId);
+      if(error) throw error;
+      confEl.textContent = 'Cliente atualizado.';
+    }else{
+      const duplicado = records.find(r => r.cliente.trim().toLowerCase() === nome.toLowerCase());
+      if(duplicado){ errEl.textContent = 'Já existe um cliente com esse nome. Use "Editar cliente" na lista em vez de criar um novo.'; errEl.style.display = 'block'; return; }
+      const { error } = await supabaseClient.from('clientes').insert({ ...payload, historico: [], propostas: [] });
+      if(error) throw error;
+      confEl.textContent = 'Cliente adicionado.';
+    }
+    confEl.style.display = 'block';
+    await loadRecords();
+    setTimeout(fecharFormularioCliente, 900);
+  }catch(e){
+    errEl.textContent = 'Não consegui salvar: ' + (e.message || e);
+    errEl.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = editingClienteId ? 'Salvar alterações' : 'Salvar cliente';
+  }
+}
+document.getElementById('salvarClienteManualBtn').addEventListener('click', salvarClienteManual);
+
 document.getElementById('list').addEventListener('click', (ev) => {
   const printBtn = ev.target.closest('[data-print-idx]');
   if(printBtn){
@@ -656,6 +784,9 @@ function render(){
   if(potencialFilterValue){
     visible = visible.filter(r => potencialClass(r.potencial) === potencialFilterValue);
   }
+  if(statusFilterValue){
+    visible = visible.filter(r => r.status === statusFilterValue);
+  }
   visible = visible.slice().sort((a,b) => {
     if(potencialFilterValue) return a.cliente.localeCompare(b.cliente);
     const order = {alto:0, medio:1, baixo:2};
@@ -736,7 +867,7 @@ function render(){
         (detailRows ? '<dl>' + detailRows + '</dl>' : '') +
         propostasHtml +
         histHtml +
-        '<div class="row-actions"><button class="del" data-id="' + r.id + '">Remover cliente</button></div>' +
+        '<div class="row-actions"><button class="edit-cliente" data-id="' + r.id + '">Editar cliente</button><button class="del" data-id="' + r.id + '">Remover cliente</button></div>' +
       '</div>';
     row.addEventListener('click', (ev) => {
       if(ev.target.closest('.row-actions')) return;
@@ -744,6 +875,7 @@ function render(){
     });
     list.appendChild(row);
     row.querySelector('.del').addEventListener('click', (ev) => excluirCliente(r.id, ev));
+    row.querySelector('.edit-cliente').addEventListener('click', (ev) => { ev.stopPropagation(); abrirEditarCliente(r); });
   });
 }
 
@@ -766,6 +898,7 @@ document.getElementById('entrada').addEventListener('keydown', (e) => {
 });
 document.getElementById('searchInput').addEventListener('input', (e) => { filterText = e.target.value; render(); });
 document.getElementById('potencialFilter').addEventListener('change', (e) => { potencialFilterValue = e.target.value; render(); });
+document.getElementById('statusFilter').addEventListener('change', (e) => { statusFilterValue = e.target.value; render(); });
 document.getElementById('exportBtn').addEventListener('click', exportarCSV);
 
 // ---- Ditado por voz ----
