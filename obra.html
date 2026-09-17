@@ -249,6 +249,13 @@ function recalcularValorTotal(){
 document.getElementById('obraVolume').addEventListener('input', recalcularValorTotal);
 document.getElementById('obraValorUnit').addEventListener('input', recalcularValorTotal);
 
+function formatarDataBR(iso){
+  if(!iso) return '';
+  const partes = iso.split('-');
+  if(partes.length !== 3) return iso;
+  return partes[2] + '/' + partes[1] + '/' + partes[0];
+}
+
 async function renderObra(){
   await loadObraCustos();
   const list = document.getElementById('obraList');
@@ -276,7 +283,7 @@ async function renderObra(){
   visiveis.forEach(c => {
     const row = document.createElement('div');
     row.className = 'row';
-    const specs = [c.data || '', c.origem || '', c.fonte_pagadora || ''].filter(Boolean).join(' · ');
+    const specs = [formatarDataBR(c.data), c.origem || '', c.fonte_pagadora || ''].filter(Boolean).join(' · ');
     row.innerHTML =
       '<span class="nome">' + (c.grupo ? '<span class="tag">' + escapeHtml(c.grupo) + '</span>' : '') + escapeHtml(c.produto_servico || '(sem descrição)') + '<br><span class="specs">' + escapeHtml(specs) + '</span></span>' +
       '<span style="display:flex;align-items:center;gap:10px;">' +
