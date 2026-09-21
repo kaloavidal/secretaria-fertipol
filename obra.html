@@ -68,13 +68,21 @@
   select.filter{flex:0 0 auto;min-width:150px;font-size:13px;padding:7px 9px;border:1px solid var(--line-strong);border-radius:7px;background:var(--paper);}
 
   .list{border-top:1px solid var(--line);}
-  .row{border-bottom:1px solid var(--line);padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .row{padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
   .row .nome{font-weight:500;font-size:14px;flex:1;min-width:160px;}
   .row .specs{font-size:12px;color:var(--ink-faint);}
   .row .tag{font-size:10.5px;padding:2px 7px;border-radius:20px;background:var(--brick-tint);color:var(--brick-deep);margin-right:6px;}
   .row .valor{font-size:14px;font-weight:500;color:var(--brick-deep);white-space:nowrap;}
   .row-actions button{font-family:inherit;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink-soft);}
   .row-actions button.del{color:var(--danger);border-color:#E3C3BB;}
+  .row{cursor:pointer;}
+  .row-details{display:none;padding:10px 4px 4px;font-size:13px;color:var(--ink-soft);}
+  .row-details.open{display:block;}
+  .row-details dl{display:grid;grid-template-columns:130px 1fr;gap:5px 10px;margin:0;}
+  .row-details dt{color:var(--ink-faint);}
+  .row-details dd{margin:0;color:var(--ink);}
+  .row-wrap{border-bottom:1px solid var(--line);}
+  .row-wrap .row{border-bottom:none;}
   .empty{text-align:center;padding:40px 20px;color:var(--ink-faint);font-size:14px;}
   .logout-btn{font-family:inherit;font-size:12.5px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline;}
 </style>
@@ -107,7 +115,6 @@
         <select id="obraGrupo">
           <option value="Gerais">Gerais</option>
           <option value="Obra Casa">Obra Casa</option>
-          <option value="Mão de Obra - Casa">Mão de Obra - Casa</option>
         </select>
       </div>
       <div><label>Centro de custo</label>
@@ -131,14 +138,20 @@
       <div><label>Dias trabalhados</label><input type="number" id="obraDias" min="0" step="any"></div>
     </div>
 
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);">
+        <input type="checkbox" id="obraMaoDeObra" style="width:auto;"> É mão de obra (dentro de Obra Casa)
+      </label>
+    </div>
+
     <div class="grid2 field">
       <div><label>Fonte pagadora</label>
         <input type="text" id="obraFonte" list="obraFontesDatalist" placeholder="Ex: Nubank PJ">
         <datalist id="obraFontesDatalist">
-          <option value="CARTÃO PJ"><option value="CARTÃO PF"><option value="CARTÃO CEF PJ">
-          <option value="CARTÃO CRESOL PJ"><option value="CEF PJ"><option value="NUBANK PJ">
-          <option value="PIX PJ"><option value="PIX PJ NUBANK"><option value="BOLETO">
-          <option value="A PAGAR"><option value="CASH - SAQUE NU BANK">
+          <option value="CARTÃO CEF PJ"><option value="CARTÃO CRESOL PJ"><option value="CARTÃO NUBANK PJ">
+          <option value="CARTÃO PF"><option value="CEF PJ">
+          <option value="Nubank PJ"><option value="BOLETO"><option value="BOLETOS 30/60/90">
+          <option value="A PAGAR">
         </datalist>
       </div>
       <div><label>Observações</label><input type="text" id="obraObs" placeholder="Opcional"></div>
@@ -153,13 +166,17 @@
   </div>
 
   <div class="toolbar">
+    <input class="filter" id="obraSearch" type="text" placeholder="Buscar despesa" style="flex:1;min-width:160px;">
     <select class="filter" id="obraGrupoFilter">
       <option value="">Todos os grupos</option>
       <option value="Gerais">Gerais</option>
       <option value="Obra Casa">Obra Casa</option>
-      <option value="Mão de Obra - Casa">Mão de Obra - Casa</option>
+      <option value="mao_de_obra">Só mão de obra</option>
     </select>
-    <p class="total" id="obraTotal"></p>
+    <div style="text-align:right;">
+      <p class="total" id="obraTotal" style="margin:0;"></p>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:2px 0 0;" id="obraCustoM2"></p>
+    </div>
   </div>
   <p class="count" id="obraCount"></p>
   <div class="categorias" id="obraResumoCategorias"></div>
@@ -220,6 +237,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 let obraCustos = [];
 let editingObraId = null;
 let grupoFilterValue = '';
+let searchValue = '';
 
 function showObraError(msg){
   const el = document.getElementById('obraError');
@@ -249,6 +267,15 @@ function recalcularValorTotal(){
 document.getElementById('obraVolume').addEventListener('input', recalcularValorTotal);
 document.getElementById('obraValorUnit').addEventListener('input', recalcularValorTotal);
 
+['obraProduto', 'obraOrigem', 'obraFonte', 'obraObs'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    const pos = el.selectionStart;
+    el.value = el.value.toUpperCase();
+    el.setSelectionRange(pos, pos);
+  });
+});
+
 function formatarDataBR(iso){
   if(!iso) return '';
   const partes = iso.split('-');
@@ -264,14 +291,31 @@ async function renderObra(){
   const totalEl = document.getElementById('obraTotal');
   const resumoEl = document.getElementById('obraResumoCategorias');
 
-  const visiveis = grupoFilterValue ? obraCustos.filter(c => c.grupo === grupoFilterValue) : obraCustos;
+  let visiveis = obraCustos;
+  if(grupoFilterValue === 'mao_de_obra') visiveis = obraCustos.filter(c => c.is_mao_de_obra);
+  else if(grupoFilterValue) visiveis = obraCustos.filter(c => c.grupo === grupoFilterValue);
+
+  if(searchValue){
+    const termo = searchValue.toLowerCase();
+    visiveis = visiveis.filter(c =>
+      (c.produto_servico || '').toLowerCase().includes(termo) ||
+      (c.origem || '').toLowerCase().includes(termo) ||
+      (c.fonte_pagadora || '').toLowerCase().includes(termo) ||
+      (c.observacoes || '').toLowerCase().includes(termo)
+    );
+  }
 
   list.innerHTML = '';
   empty.style.display = visiveis.length === 0 ? 'block' : 'none';
-  count.textContent = visiveis.length + (visiveis.length === 1 ? ' gasto' : ' gastos') + (grupoFilterValue ? ' (filtrado)' : '');
+  const filtrosAtivos = grupoFilterValue || searchValue;
+  count.textContent = visiveis.length + (visiveis.length === 1 ? ' gasto' : ' gastos') + (filtrosAtivos ? ' (filtrado)' : '');
 
   const total = visiveis.reduce((s, c) => s + (parseFloat(c.valor_total) || 0), 0);
   totalEl.textContent = 'Total: R$ ' + total.toFixed(2);
+
+  const AREA_M2 = 220;
+  const totalObraCasa = obraCustos.filter(c => c.grupo === 'Obra Casa').reduce((s, c) => s + (parseFloat(c.valor_total) || 0), 0);
+  document.getElementById('obraCustoM2').textContent = 'Obra Casa por m² (÷' + AREA_M2 + 'm²): R$ ' + (totalObraCasa / AREA_M2).toFixed(2);
 
   const porGrupo = {};
   obraCustos.forEach(c => {
@@ -281,21 +325,44 @@ async function renderObra(){
   resumoEl.textContent = Object.keys(porGrupo).map(g => g + ': R$ ' + porGrupo[g].toFixed(2)).join('  ·  ');
 
   visiveis.forEach(c => {
+    const wrap = document.createElement('div');
+    wrap.className = 'row-wrap';
     const row = document.createElement('div');
     row.className = 'row';
     const specs = [formatarDataBR(c.data), c.origem || '', c.fonte_pagadora || ''].filter(Boolean).join(' · ');
     row.innerHTML =
-      '<span class="nome">' + (c.grupo ? '<span class="tag">' + escapeHtml(c.grupo) + '</span>' : '') + escapeHtml(c.produto_servico || '(sem descrição)') + '<br><span class="specs">' + escapeHtml(specs) + '</span></span>' +
+      '<span class="nome">' + (c.grupo ? '<span class="tag">' + escapeHtml(c.grupo) + '</span>' : '') + (c.is_mao_de_obra ? '<span class="tag" style="background:#DCE5CC;color:#3C5A2E;">Mão de obra</span>' : '') + escapeHtml(c.produto_servico || '(sem descrição)') + '<br><span class="specs">' + escapeHtml(specs) + '</span></span>' +
       '<span style="display:flex;align-items:center;gap:10px;">' +
         '<span class="valor">R$ ' + Number(c.valor_total || 0).toFixed(2) + '</span>' +
-        '<span class="row-actions"><button data-edit-obra="' + c.id + '">Editar</button> <button class="del" data-del-obra="' + c.id + '">Remover</button></span>' +
       '</span>';
-    list.appendChild(row);
+
+    const detalhesLinhas = [];
+    if(c.centro_de_custo) detalhesLinhas.push(['Centro de custo', c.centro_de_custo]);
+    if(c.volume !== null && c.volume !== undefined) detalhesLinhas.push(['Volume', c.volume]);
+    if(c.valor_unitario !== null && c.valor_unitario !== undefined) detalhesLinhas.push(['Valor unitário', 'R$ ' + Number(c.valor_unitario).toFixed(2)]);
+    if(c.dias_trabalhados !== null && c.dias_trabalhados !== undefined) detalhesLinhas.push(['Dias trabalhados', c.dias_trabalhados]);
+    if(c.fonte_pagadora) detalhesLinhas.push(['Fonte pagadora', c.fonte_pagadora]);
+    if(c.data) detalhesLinhas.push(['Data', formatarDataBR(c.data)]);
+    if(c.observacoes) detalhesLinhas.push(['Observações', c.observacoes]);
+
+    const details = document.createElement('div');
+    details.className = 'row-details';
+    details.innerHTML =
+      '<dl>' + detalhesLinhas.map(([k,v]) => '<dt>' + escapeHtml(k) + '</dt><dd>' + escapeHtml(String(v)) + '</dd>').join('') + '</dl>' +
+      '<div class="row-actions" style="margin-top:10px;display:flex;gap:8px;">' +
+        '<button data-edit-obra="' + c.id + '">Editar</button> <button class="del" data-del-obra="' + c.id + '">Remover</button>' +
+      '</div>';
+
+    row.addEventListener('click', () => details.classList.toggle('open'));
+    wrap.appendChild(row);
+    wrap.appendChild(details);
+    list.appendChild(wrap);
   });
-  list.querySelectorAll('[data-edit-obra]').forEach(btn => btn.addEventListener('click', () => editarObraCusto(btn.dataset.editObra)));
-  list.querySelectorAll('[data-del-obra]').forEach(btn => btn.addEventListener('click', () => excluirObraCusto(btn.dataset.delObra)));
+  list.querySelectorAll('[data-edit-obra]').forEach(btn => btn.addEventListener('click', (ev) => { ev.stopPropagation(); editarObraCusto(btn.dataset.editObra); }));
+  list.querySelectorAll('[data-del-obra]').forEach(btn => btn.addEventListener('click', (ev) => { ev.stopPropagation(); excluirObraCusto(btn.dataset.delObra); }));
 }
 document.getElementById('obraGrupoFilter').addEventListener('change', (e) => { grupoFilterValue = e.target.value; renderObra(); });
+document.getElementById('obraSearch').addEventListener('input', (e) => { searchValue = e.target.value; renderObra(); });
 
 function limparFormObra(){
   document.getElementById('obraProduto').value = '';
@@ -309,6 +376,7 @@ function limparFormObra(){
   document.getElementById('obraDias').value = '';
   document.getElementById('obraFonte').value = '';
   document.getElementById('obraObs').value = '';
+  document.getElementById('obraMaoDeObra').checked = false;
   editingObraId = null;
   document.getElementById('editandoObraAviso').style.display = 'none';
   document.getElementById('cancelarObraBtn').style.display = 'none';
@@ -331,6 +399,7 @@ function editarObraCusto(id){
   document.getElementById('obraDias').value = c.dias_trabalhados !== null && c.dias_trabalhados !== undefined ? c.dias_trabalhados : '';
   document.getElementById('obraFonte').value = c.fonte_pagadora || '';
   document.getElementById('obraObs').value = c.observacoes || '';
+  document.getElementById('obraMaoDeObra').checked = !!c.is_mao_de_obra;
   document.getElementById('editandoObraAviso').style.display = 'block';
   document.getElementById('cancelarObraBtn').style.display = 'inline-block';
   document.getElementById('salvarObraBtn').textContent = 'Salvar alterações';
@@ -355,6 +424,7 @@ async function salvarObraCusto(){
   const dias = document.getElementById('obraDias').value;
   const fonte = document.getElementById('obraFonte').value.trim();
   const obs = document.getElementById('obraObs').value.trim();
+  const isMaoDeObra = document.getElementById('obraMaoDeObra').checked;
 
   document.getElementById('obraError').style.display = 'none';
   document.getElementById('obraConfirm').style.display = 'none';
@@ -368,7 +438,8 @@ async function salvarObraCusto(){
     valor_total: parseFloat(valorTotal),
     fonte_pagadora: fonte || null, data: data || null,
     dias_trabalhados: dias ? parseFloat(dias) : null,
-    observacoes: obs || null
+    observacoes: obs || null,
+    is_mao_de_obra: isMaoDeObra
   };
 
   const btn = document.getElementById('salvarObraBtn');
