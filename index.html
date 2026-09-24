@@ -1813,9 +1813,8 @@ function calcularMenorCusto(){
     return;
   }
 
-  const top5 = resultados.slice(0, 5);
-  let html = '';
-  top5.forEach((r, idx) => {
+  let html = '<p style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">' + resultados.length + (resultados.length === 1 ? ' combinação encontrada' : ' combinações encontradas') + ', ordenadas da mais barata pra mais cara.</p>';
+  resultados.forEach((r, idx) => {
     const linhasItens = r.itens.map(x => '<div class="hist-item">' + escapeHtml(x.formulacao.nome) + ' — ' + x.dose.toFixed(1) + ' kg/ha (R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '/ha)</div>').join('');
     const entregaTxt = Object.keys(targets).filter(k => targets[k] > 0).map(k => {
       const label = k === 'n' ? 'N' : k === 'p2o5' ? 'P2O5' : k === 'k2o' ? 'K2O' : 'S';
