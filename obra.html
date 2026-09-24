@@ -100,6 +100,14 @@
   </div>
 </div>
 
+<div id="acessoNegado" class="login-wrap" style="display:none;">
+  <div class="login-card" style="text-align:center;">
+    <h1 style="font-size:20px;">Sem acesso</h1>
+    <p>Essa conta não tem permissão para usar o Custos de Obra.</p>
+    <button id="logoutNegadoBtn">Sair</button>
+  </div>
+</div>
+
 <div class="app" id="mainApp" style="display:none;">
   <header>
     <h1>Custos de Obra</h1>
@@ -202,14 +210,30 @@ function escapeHtml(s){
   return d.innerHTML;
 }
 
+const ADMIN_EMAIL = 'kaloa_vidal@hotmail.com';
 async function checkSession(){
   const { data } = await supabaseClient.auth.getSession();
-  if(data.session) showApp(); else showLogin();
+  if(data.session){
+    if((data.session.user.email || '').toLowerCase() !== ADMIN_EMAIL.toLowerCase()) showAcessoNegado();
+    else showApp();
+  }else{
+    showLogin();
+  }
 }
 function showLogin(){
   document.getElementById('loginScreen').style.display = 'block';
   document.getElementById('mainApp').style.display = 'none';
 }
+function showAcessoNegado(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('acessoNegado').style.display = 'block';
+}
+document.getElementById('logoutNegadoBtn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  document.getElementById('acessoNegado').style.display = 'none';
+  showLogin();
+});
 function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
@@ -226,7 +250,8 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = 'Entrar';
   if(error){ errEl.textContent = 'E-mail ou senha incorretos.'; errEl.style.display = 'block'; return; }
-  showApp();
+  if(email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) showAcessoNegado();
+  else showApp();
 });
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
