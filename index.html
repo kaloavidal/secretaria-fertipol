@@ -344,6 +344,7 @@
     <div class="composer" style="margin-top:26px;">
       <label>Comparar formulações</label>
       <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Marque as formulações do catálogo que quer comparar.</p>
+      <input class="search" id="comparadorSearch" placeholder="Buscar formulação" style="width:100%;margin-bottom:10px;">
       <div id="selecaoComparar"></div>
 
       <label style="margin-top:16px;display:block;">Nutrientes no índice combinado</label>
@@ -363,6 +364,7 @@
         <button type="button" class="export-btn" id="selecionarTodasBtn" style="padding:4px 10px;">Marcar todas</button>
         <button type="button" class="export-btn" id="limparSelecaoBtn" style="padding:4px 10px;">Limpar seleção</button>
       </div>
+      <input class="search" id="menorCustoSearch" placeholder="Buscar formulação" style="width:100%;margin-bottom:10px;">
       <div id="selecaoMenorCusto" style="margin-bottom:16px;"></div>
 
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
@@ -979,6 +981,18 @@ document.getElementById('tabClientes').addEventListener('click', () => mostrarAb
 document.getElementById('tabProposta').addEventListener('click', () => mostrarAba('tabProposta'));
 document.getElementById('tabComparador').addEventListener('click', () => mostrarAba('tabComparador'));
 document.getElementById('catalogoSearch').addEventListener('input', (e) => { catalogoSearchValue = e.target.value; renderCatalogo(); });
+document.getElementById('comparadorSearch').addEventListener('input', (e) => {
+  const termo = e.target.value.toLowerCase();
+  document.querySelectorAll('#selecaoComparar label').forEach(lbl => {
+    lbl.style.display = lbl.textContent.toLowerCase().includes(termo) ? 'flex' : 'none';
+  });
+});
+document.getElementById('menorCustoSearch').addEventListener('input', (e) => {
+  const termo = e.target.value.toLowerCase();
+  document.querySelectorAll('#selecaoMenorCusto label').forEach(lbl => {
+    lbl.style.display = lbl.textContent.toLowerCase().includes(termo) ? 'flex' : 'none';
+  });
+});
 
 function atualizarDatalistClientes(){
   const dl = document.getElementById('listaClientesDatalist');
