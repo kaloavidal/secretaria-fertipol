@@ -328,6 +328,7 @@
       <div class="confirm" id="formulaConfirm" style="display:none;"></div>
     </div>
 
+    <input class="search" id="catalogoSearch" placeholder="Buscar formulação" style="width:100%;margin-bottom:10px;">
     <p class="count" id="catalogoCount"></p>
     <div class="list" id="catalogoList"></div>
 
@@ -977,6 +978,7 @@ function mostrarAba(tabId){
 document.getElementById('tabClientes').addEventListener('click', () => mostrarAba('tabClientes'));
 document.getElementById('tabProposta').addEventListener('click', () => mostrarAba('tabProposta'));
 document.getElementById('tabComparador').addEventListener('click', () => mostrarAba('tabComparador'));
+document.getElementById('catalogoSearch').addEventListener('input', (e) => { catalogoSearchValue = e.target.value; renderCatalogo(); });
 
 function atualizarDatalistClientes(){
   const dl = document.getElementById('listaClientesDatalist');
@@ -1334,6 +1336,7 @@ let formulacoes = [];
 let referencias = {};
 let referenciasCarregadas = false;
 let formulacoesCarregadas = false;
+let catalogoSearchValue = '';
 let editingFormulaContext = null;
 let microCounter = 0;
 
@@ -1462,9 +1465,12 @@ async function renderCatalogo(){
   renderReferencias();
   const list = document.getElementById('catalogoList');
   const count = document.getElementById('catalogoCount');
-  count.textContent = formulacoes.length + (formulacoes.length === 1 ? ' formulação no catálogo' : ' formulações no catálogo');
+  const visiveis = catalogoSearchValue
+    ? formulacoes.filter(f => f.nome.toLowerCase().includes(catalogoSearchValue.toLowerCase()))
+    : formulacoes;
+  count.textContent = visiveis.length + (visiveis.length === 1 ? ' formulação' : ' formulações') + (catalogoSearchValue ? ' (de ' + formulacoes.length + ' no total)' : ' no catálogo');
   list.innerHTML = '';
-  formulacoes.forEach(f => {
+  visiveis.forEach(f => {
     const microsTxt = Object.keys(f.micros || {}).map(k => k + ' ' + f.micros[k] + '%').join(', ');
     const specs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null, microsTxt || null]
       .filter(Boolean).join(' · ');
