@@ -101,7 +101,12 @@
     <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
     <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
     <button id="loginBtn">Entrar</button>
+    <button id="signupBtn" style="display:none;">Criar conta</button>
     <div class="login-error" id="loginError" style="display:none;"></div>
+    <div class="confirm" id="signupConfirm" style="display:none;"></div>
+    <p style="text-align:center;font-size:12.5px;margin-top:14px;">
+      <a href="#" id="toggleSignup" style="color:var(--green-deep);">Ainda não tem conta? Criar agora</a>
+    </p>
   </div>
 </div>
 
@@ -223,6 +228,40 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   currentUserId = data.user.id;
   showApp();
 });
+
+let modoCadastro = false;
+document.getElementById('toggleSignup').addEventListener('click', (e) => {
+  e.preventDefault();
+  modoCadastro = !modoCadastro;
+  document.getElementById('loginBtn').style.display = modoCadastro ? 'none' : 'block';
+  document.getElementById('signupBtn').style.display = modoCadastro ? 'block' : 'none';
+  document.getElementById('toggleSignup').textContent = modoCadastro ? 'Já tem conta? Entrar' : 'Ainda não tem conta? Criar agora';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('signupConfirm').style.display = 'none';
+});
+
+document.getElementById('signupBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const confEl = document.getElementById('signupConfirm');
+  errEl.style.display = 'none'; confEl.style.display = 'none';
+  if(!email || !password){ errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; return; }
+  if(password.length < 6){ errEl.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; errEl.style.display = 'block'; return; }
+  const btn = document.getElementById('signupBtn');
+  btn.disabled = true; btn.textContent = 'Criando…';
+  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  btn.disabled = false; btn.textContent = 'Criar conta';
+  if(error){ errEl.textContent = 'Não consegui criar a conta: ' + error.message; errEl.style.display = 'block'; return; }
+  if(data.session){
+    currentUserId = data.user.id;
+    showApp();
+  }else{
+    confEl.textContent = 'Conta criada! Verifique seu e-mail para confirmar antes de entrar.';
+    confEl.style.display = 'block';
+  }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
   showLogin();
