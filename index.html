@@ -355,7 +355,15 @@
 
     <div class="composer" style="margin-top:26px;">
       <label>Menor custo por hectare</label>
-      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Informe a exigência da lavoura (kg/ha) e eu busco no catálogo a combinação de menor custo que atende ou supera cada nutriente — normalmente uma formulação base mais matérias-primas de complemento (MAP, KCl, Ureia etc, se estiverem cadastradas no catálogo acima).</p>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Informe a exigência da lavoura (kg/ha) e eu busco, entre as formulações marcadas abaixo, a combinação de menor custo que atende ou supera cada nutriente — normalmente uma formulação base mais matérias-primas de complemento (MAP, KCl, Ureia etc).</p>
+
+      <label style="font-size:12.5px;">Formulações a considerar</label>
+      <div style="display:flex;gap:14px;margin:6px 0 10px;font-size:12.5px;">
+        <button type="button" class="export-btn" id="selecionarTodasBtn" style="padding:4px 10px;">Marcar todas</button>
+        <button type="button" class="export-btn" id="limparSelecaoBtn" style="padding:4px 10px;">Limpar seleção</button>
+      </div>
+      <div id="selecaoMenorCusto" style="margin-bottom:16px;"></div>
+
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
         <div><label style="font-size:12px;">N (kg/ha)</label><input type="number" id="targetN" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
         <div><label style="font-size:12px;">P2O5 (kg/ha)</label><input type="number" id="targetP" min="0" step="any" style="width:100%;font-family:inherit;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;"></div>
@@ -1474,7 +1482,22 @@ async function renderCatalogo(){
   list.querySelectorAll('[data-del-formula]').forEach(btn => btn.addEventListener('click', () => excluirFormula(btn.dataset.delFormula)));
   renderSelecaoComparar();
   renderNutrientesIndice();
+  renderSelecaoMenorCusto();
 }
+
+function renderSelecaoMenorCusto(){
+  const el = document.getElementById('selecaoMenorCusto');
+  if(formulacoes.length === 0){ el.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Cadastre formulações no catálogo acima primeiro.</p>'; return; }
+  el.innerHTML = formulacoes.map(f =>
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:8px;"><input type="checkbox" class="mc-check" value="' + f.id + '" checked> ' + escapeHtml(f.nome) + (f.preco_ton ? '' : ' <span style="color:var(--ink-faint);">(sem preço)</span>') + '</label>'
+  ).join('');
+}
+document.getElementById('selecionarTodasBtn').addEventListener('click', () => {
+  document.querySelectorAll('.mc-check').forEach(c => c.checked = true);
+});
+document.getElementById('limparSelecaoBtn').addEventListener('click', () => {
+  document.querySelectorAll('.mc-check').forEach(c => c.checked = false);
+});
 
 function renderSelecaoComparar(){
   const el = document.getElementById('selecaoComparar');
@@ -1778,8 +1801,11 @@ function calcularMenorCusto(){
   const algumTarget = Object.values(targets).some(v => v > 0);
   if(!algumTarget){ errEl.textContent = 'Informe pelo menos um nutriente com kg/ha.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
 
-  const comPreco = formulacoes.filter(f => f.preco_ton);
-  if(comPreco.length === 0){ errEl.textContent = 'Cadastre formulações com preço no catálogo acima primeiro.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
+  const idsSelecionadas = Array.from(document.querySelectorAll('.mc-check:checked')).map(c => c.value);
+  if(idsSelecionadas.length === 0){ errEl.textContent = 'Marque pelo menos uma formulação para considerar no cálculo.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
+
+  const comPreco = formulacoes.filter(f => f.preco_ton && idsSelecionadas.includes(f.id));
+  if(comPreco.length === 0){ errEl.textContent = 'As formulações marcadas não têm preço cadastrado.'; errEl.style.display = 'block'; container.innerHTML = ''; return; }
 
   const resultados = resolverMenorCusto(targets, comPreco);
   if(resultados.length === 0){
@@ -1804,6 +1830,7 @@ function calcularMenorCusto(){
   container.innerHTML = html;
 }
 document.getElementById('calcularMenorCustoBtn').addEventListener('click', calcularMenorCusto);
+
 
 checkSession();
 
