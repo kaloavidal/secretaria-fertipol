@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AduboCalc</title>
+<meta name="apple-mobile-web-app-title" content="AduboCalc">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #EEF1E7;
+    --paper: #FAFBF6;
+    --ink: #232920;
+    --ink-soft: #5C6355;
+    --ink-faint: #949C88;
+    --line: #DAE0CE;
+    --line-strong: #C1C9B0;
+    --green: #3E6B3A;
+    --green-deep: #294B26;
+    --green-tint: #DEE9D8;
+    --amber: #A3781E;
+    --amber-tint: #F1E5C6;
+    --danger: #A13B2C;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);}
+  .app{font-family:'IBM Plex Sans',sans-serif;color:var(--ink);padding:28px 20px 60px;max-width:760px;margin:0 auto;}
+  h1{font-family:'Fraunces',serif;font-weight:500;margin:0;}
+  header{margin-bottom:22px;}
+  header h1{font-size:26px;color:var(--green-deep);}
+  header p{font-size:13.5px;color:var(--ink-soft);margin:6px 0 0;}
+
+  .login-wrap{max-width:340px;margin:90px auto;padding:0 20px;font-family:'IBM Plex Sans',sans-serif;}
+  .login-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;}
+  .login-card h1{font-size:22px;color:var(--green-deep);text-align:center;margin-bottom:6px;}
+  .login-card p{font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 18px;}
+  .login-card input{width:100%;font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;margin-bottom:10px;background:#fff;}
+  .login-card input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-tint);}
+  .login-card button{width:100%;background:var(--green);color:#fff;border:none;border-radius:7px;padding:11px;font-size:14.5px;font-family:inherit;font-weight:500;cursor:pointer;margin-top:4px;}
+  .login-card button:hover{background:var(--green-deep);}
+  .login-card button:disabled{opacity:.6;}
+  .login-error{font-size:13px;color:var(--danger);margin-top:10px;}
+
+  .composer{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px;}
+  label{font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;}
+  input, select{font-family:inherit;}
+  input[type=text], input[type=number], select{
+    width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;
+  }
+  input:focus, select:focus{outline:none;border-color:var(--green);}
+  .grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;}
+  .grid2{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+  @media (max-width:600px){ .grid4{grid-template-columns:1fr 1fr;} }
+  .send-btn{background:var(--green);color:#fff;border:none;border-radius:7px;padding:10px 18px;font-size:14px;font-family:inherit;font-weight:500;cursor:pointer;}
+  .send-btn:hover{background:var(--green-deep);}
+  .send-btn:disabled{opacity:.55;}
+  .export-btn{font-family:inherit;font-size:13px;color:var(--ink-soft);background:transparent;border:1px solid var(--line-strong);border-radius:7px;padding:8px 14px;cursor:pointer;}
+  .export-btn:hover{background:var(--bg);}
+  .error{font-size:13px;color:var(--danger);margin-top:8px;}
+  .confirm{font-size:13.5px;color:var(--green-deep);background:var(--green-tint);border-radius:7px;padding:8px 12px;margin-top:10px;}
+
+  .tabs{display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--line);}
+  .tab-btn{font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink-faint);background:transparent;border:none;padding:10px 4px;margin-right:18px;cursor:pointer;border-bottom:2px solid transparent;}
+  .tab-btn.active{color:var(--green-deep);font-weight:500;border-bottom-color:var(--green);}
+
+  .catalogo-row{border-bottom:1px solid var(--line);padding:10px 4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .catalogo-row .nome{font-weight:500;font-size:14px;flex:1;min-width:140px;}
+  .catalogo-row .specs{font-size:12px;color:var(--ink-faint);}
+  .btn-mini{font-family:inherit;font-size:12px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--ink-soft);}
+  .btn-mini.del{color:var(--danger);border-color:#E3C3BB;}
+
+  .padrao-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .padrao-row .nome{flex:1;min-width:160px;font-size:13.5px;}
+  .padrao-row input[type=number]{width:110px;}
+
+  .cmp-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .cmp-table th{text-align:left;font-weight:500;color:var(--ink-faint);font-size:11px;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line);}
+  .cmp-table td{padding:8px 10px;border-bottom:1px solid var(--line);}
+
+  .proposta-card{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+  .proposta-head{display:flex;justify-content:space-between;padding:9px 12px;background:var(--paper);font-size:12.5px;color:var(--ink-soft);}
+  .tipo-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--green-tint);color:var(--green-deep);}
+  .hist-item{font-size:12.5px;color:var(--ink-soft);margin-bottom:4px;}
+
+  .paywall{background:var(--amber-tint);border:1px solid #DFC98A;border-radius:10px;padding:20px;text-align:center;}
+  .paywall h2{font-family:'Fraunces',serif;font-size:19px;color:var(--amber);margin:0 0 8px;}
+  .paywall p{font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;}
+  .paywall a.send-btn{display:inline-block;text-decoration:none;}
+  .usage-note{font-size:12px;color:var(--ink-faint);text-align:right;margin-bottom:10px;}
+  .logout-btn{font-family:inherit;font-size:12.5px;color:var(--ink-faint);background:none;border:none;cursor:pointer;text-decoration:underline;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h1>AduboCalc</h1>
+    <p>Compare o custo das suas formulações e encontre a mistura mais barata.</p>
+    <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
+    <button id="loginBtn">Entrar</button>
+    <div class="login-error" id="loginError" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
+  <header>
+    <h1>AduboCalc</h1>
+    <p>Marque as formulações que você tem disponível, informe o preço, e descubra a combinação de menor custo.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabMinhas">Minhas Formulações</button>
+    <button class="tab-btn" id="tabCalcular">Calcular</button>
+  </div>
+
+  <div id="viewMinhas">
+    <div class="composer">
+      <label>Adicionar do catálogo padrão</label>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Marque as que você tem disponível e informe o preço de hoje (R$/ton).</p>
+      <input class="search" id="padraoSearch" placeholder="Buscar formulação" style="width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;margin-bottom:10px;">
+      <div id="listaPadrao"></div>
+      <button class="send-btn" id="adicionarPadraoBtn" style="margin-top:12px;">Adicionar selecionadas</button>
+      <div class="error" id="padraoError" style="display:none;"></div>
+      <div class="confirm" id="padraoConfirm" style="display:none;"></div>
+    </div>
+
+    <div class="composer">
+      <label>Adicionar formulação personalizada</label>
+      <div class="grid2" style="margin-bottom:10px;">
+        <input type="text" id="custNome" placeholder="Nome (ex: NPK 15-15-15)">
+        <input type="number" id="custPreco" placeholder="R$/ton" min="0" step="any">
+      </div>
+      <div class="grid4" style="margin-bottom:10px;">
+        <input type="number" id="custN" placeholder="N %" min="0" step="any">
+        <input type="number" id="custP" placeholder="P2O5 %" min="0" step="any">
+        <input type="number" id="custK" placeholder="K2O %" min="0" step="any">
+        <input type="number" id="custS" placeholder="S %" min="0" step="any">
+      </div>
+      <button class="send-btn" id="addCustomBtn">Adicionar personalizada</button>
+      <div class="error" id="customError" style="display:none;"></div>
+    </div>
+
+    <p class="count" id="minhasCount" style="font-size:12.5px;color:var(--ink-faint);"></p>
+    <div id="minhasList"></div>
+  </div>
+
+  <div id="viewCalcular" style="display:none;">
+    <div class="usage-note" id="usageNote"></div>
+    <div class="composer">
+      <label>Selecione as formulações a considerar</label>
+      <div id="selecaoCalcular" style="margin-bottom:14px;"></div>
+      <label>Exigência da lavoura (kg/ha)</label>
+      <div class="grid4" style="margin-bottom:14px;">
+        <input type="number" id="targetN" placeholder="N" min="0" step="any">
+        <input type="number" id="targetP" placeholder="P2O5" min="0" step="any">
+        <input type="number" id="targetK" placeholder="K2O" min="0" step="any">
+        <input type="number" id="targetS" placeholder="S" min="0" step="any">
+      </div>
+      <button class="send-btn" id="calcularBtn">Calcular menor custo</button>
+      <div class="error" id="calcError" style="display:none;"></div>
+    </div>
+    <div id="resultadoCalculo"></div>
+    <div id="paywallArea"></div>
+  </div>
+
+  <div style="margin-top:24px;text-align:center;">
+    <button class="logout-btn" id="logoutBtn">Sair</button>
+  </div>
+</div>
+
+<script>
+try {
+
+if(!window.supabase){ throw new Error('A biblioteca do Supabase não carregou.'); }
+const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const LIMITE_GRATIS = 3;
+const LINK_PAGAMENTO = 'https://mpago.la/17Hsca3';
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+let currentUserId = null;
+let formulasPadrao = [];
+let minhasFormulas = [];
+let perfil = null;
+let padraoSearchValue = '';
+
+async function checkSession(){
+  const { data } = await supabaseClient.auth.getSession();
+  if(data.session){ currentUserId = data.session.user.id; showApp(); }
+  else showLogin();
+}
+function showLogin(){
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('mainApp').style.display = 'none';
+}
+async function showApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'block';
+  await carregarPerfil();
+  await carregarTudo();
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(error){ errEl.textContent = 'E-mail ou senha incorretos.'; errEl.style.display = 'block'; return; }
+  currentUserId = data.user.id;
+  showApp();
+});
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  showLogin();
+});
+
+// ---- Abas ----
+document.getElementById('tabMinhas').addEventListener('click', () => {
+  document.getElementById('tabMinhas').classList.add('active');
+  document.getElementById('tabCalcular').classList.remove('active');
+  document.getElementById('viewMinhas').style.display = 'block';
+  document.getElementById('viewCalcular').style.display = 'none';
+});
+document.getElementById('tabCalcular').addEventListener('click', () => {
+  document.getElementById('tabCalcular').classList.add('active');
+  document.getElementById('tabMinhas').classList.remove('active');
+  document.getElementById('viewCalcular').style.display = 'block';
+  document.getElementById('viewMinhas').style.display = 'none';
+  renderSelecaoCalcular();
+  renderUsageNote();
+});
+
+// ---- Perfil / uso gratuito ----
+async function carregarPerfil(){
+  let { data, error } = await supabaseClient.from('perfis').select('*').eq('user_id', currentUserId).maybeSingle();
+  if(!data){
+    const { data: novo } = await supabaseClient.from('perfis').insert({ user_id: currentUserId }).select().single();
+    perfil = novo;
+  }else{
+    perfil = data;
+  }
+}
+function renderUsageNote(){
+  const el = document.getElementById('usageNote');
+  if(!perfil) return;
+  if(perfil.pago){
+    el.textContent = 'Acesso liberado — uso ilimitado.';
+  }else{
+    const restantes = Math.max(0, LIMITE_GRATIS - perfil.calculos_usados);
+    el.textContent = restantes + ' de ' + LIMITE_GRATIS + ' cálculos gratuitos restantes.';
+  }
+}
+
+const WHATSAPP_NUMERO = '5567996426423';
+
+function mostrarPaywall(){
+  document.getElementById('resultadoCalculo').innerHTML = '';
+  const mensagemWhats = encodeURIComponent('Olá! Acabei de pagar o acesso ao AduboCalc e gostaria de liberar meu uso.');
+  const linkWhats = 'https://wa.me/' + WHATSAPP_NUMERO + '?text=' + mensagemWhats;
+  document.getElementById('paywallArea').innerHTML =
+    '<div class="paywall">' +
+      '<h2>Você usou seus cálculos gratuitos</h2>' +
+      '<p>Pra continuar usando o AduboCalc sem limite, é só liberar o acesso.</p>' +
+      '<a class="send-btn" href="' + LINK_PAGAMENTO + '" target="_blank" rel="noopener" style="margin-bottom:10px;">Liberar acesso</a>' +
+      '<div>' +
+        '<a href="' + linkWhats + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:var(--green-deep);font-size:13.5px;text-decoration:none;font-weight:500;">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91C21.96 6.46 17.5 2 12.04 2zm5.82 14.03c-.24.68-1.4 1.3-1.93 1.36-.49.06-1.11.09-1.79-.11-.41-.12-.94-.3-1.62-.58-2.84-1.23-4.69-4.08-4.83-4.27-.14-.19-1.16-1.54-1.16-2.94s.73-2.09.99-2.37c.25-.28.55-.35.74-.35h.53c.17 0 .4-.02.62.48.24.55.81 1.9.88 2.04.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.29.29-.12.57.17.28.75 1.25 1.62 2.02 1.11.99 2.05 1.3 2.33 1.45.28.14.44.12.6-.07.16-.19.68-.79.86-1.06.18-.28.36-.23.6-.14.25.09 1.58.75 1.85.88.28.14.46.21.53.32.07.12.07.68-.17 1.36z"/></svg>' +
+          'Avisar que paguei pelo WhatsApp' +
+        '</a>' +
+      '</div>' +
+      '<p style="font-size:11.5px;margin-top:12px;">Depois de pagar, me avise que eu libero seu acesso em poucos minutos.</p>' +
+    '</div>';
+}
+
+// ---- Carregar dados ----
+async function carregarTudo(){
+  const [{ data: padrao }, { data: minhas }] = await Promise.all([
+    supabaseClient.from('formulas_padrao').select('*').order('nome'),
+    supabaseClient.from('minhas_formulas').select('*').order('nome')
+  ]);
+  formulasPadrao = padrao || [];
+  minhasFormulas = minhas || [];
+  renderPadrao();
+  renderMinhas();
+}
+
+// ---- Catálogo padrão ----
+function renderPadrao(){
+  const el = document.getElementById('listaPadrao');
+  const jaAdicionadas = new Set(minhasFormulas.map(f => f.nome));
+  const visiveis = padraoSearchValue
+    ? formulasPadrao.filter(f => f.nome.toLowerCase().includes(padraoSearchValue.toLowerCase()))
+    : formulasPadrao;
+  el.innerHTML = visiveis.map(f => {
+    const especs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null].filter(Boolean).join(' · ');
+    const jaTem = jaAdicionadas.has(f.nome);
+    return '<div class="padrao-row">' +
+      '<input type="checkbox" class="padrao-check" value="' + f.id + '" ' + (jaTem ? 'disabled' : '') + '>' +
+      '<span class="nome">' + escapeHtml(f.nome) + (jaTem ? ' <span style="color:var(--ink-faint);font-size:11.5px;">(já no seu catálogo)</span>' : '') + '<br><span class="specs" style="font-size:11.5px;color:var(--ink-faint);">' + especs + '</span></span>' +
+      '<input type="number" class="padrao-preco" data-id="' + f.id + '" placeholder="R$/ton" min="0" step="any" ' + (jaTem ? 'disabled' : '') + '>' +
+      '</div>';
+  }).join('');
+}
+document.getElementById('padraoSearch').addEventListener('input', (e) => { padraoSearchValue = e.target.value; renderPadrao(); });
+
+document.getElementById('adicionarPadraoBtn').addEventListener('click', async () => {
+  const checks = Array.from(document.querySelectorAll('.padrao-check:checked'));
+  const errEl = document.getElementById('padraoError');
+  const confEl = document.getElementById('padraoConfirm');
+  errEl.style.display = 'none'; confEl.style.display = 'none';
+  if(checks.length === 0){ errEl.textContent = 'Marque pelo menos uma formulação.'; errEl.style.display = 'block'; return; }
+
+  const linhas = [];
+  for(const chk of checks){
+    const id = chk.value;
+    const f = formulasPadrao.find(x => x.id === id);
+    const precoInput = document.querySelector('.padrao-preco[data-id="' + id + '"]');
+    const preco = precoInput.value ? parseFloat(precoInput.value) : null;
+    linhas.push({
+      user_id: currentUserId, nome: f.nome, n: f.n, p2o5: f.p2o5, k2o: f.k2o, s: f.s,
+      micros: f.micros || {}, preco_ton: preco
+    });
+  }
+  const { error } = await supabaseClient.from('minhas_formulas').insert(linhas);
+  if(error){ errEl.textContent = 'Não consegui adicionar: ' + error.message; errEl.style.display = 'block'; return; }
+  confEl.textContent = 'Adicionado ao seu catálogo.'; confEl.style.display = 'block';
+  await carregarTudo();
+});
+
+// ---- Formulação personalizada ----
+document.getElementById('addCustomBtn').addEventListener('click', async () => {
+  const nome = document.getElementById('custNome').value.trim();
+  const preco = document.getElementById('custPreco').value;
+  const n = document.getElementById('custN').value;
+  const p = document.getElementById('custP').value;
+  const k = document.getElementById('custK').value;
+  const s = document.getElementById('custS').value;
+  const errEl = document.getElementById('customError');
+  errEl.style.display = 'none';
+  if(!nome){ errEl.textContent = 'Informe o nome da formulação.'; errEl.style.display = 'block'; return; }
+
+  const { error } = await supabaseClient.from('minhas_formulas').insert({
+    user_id: currentUserId, nome,
+    n: n ? parseFloat(n) : null, p2o5: p ? parseFloat(p) : null,
+    k2o: k ? parseFloat(k) : null, s: s ? parseFloat(s) : null,
+    preco_ton: preco ? parseFloat(preco) : null
+  });
+  if(error){ errEl.textContent = 'Não consegui adicionar: ' + error.message; errEl.style.display = 'block'; return; }
+  document.getElementById('custNome').value = '';
+  document.getElementById('custPreco').value = '';
+  document.getElementById('custN').value = '';
+  document.getElementById('custP').value = '';
+  document.getElementById('custK').value = '';
+  document.getElementById('custS').value = '';
+  await carregarTudo();
+});
+
+// ---- Minhas formulações ----
+function renderMinhas(){
+  const list = document.getElementById('minhasList');
+  const count = document.getElementById('minhasCount');
+  count.textContent = minhasFormulas.length + (minhasFormulas.length === 1 ? ' formulação no seu catálogo' : ' formulações no seu catálogo');
+  list.innerHTML = minhasFormulas.map(f => {
+    const especs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null].filter(Boolean).join(' · ');
+    return '<div class="catalogo-row">' +
+      '<span class="nome">' + escapeHtml(f.nome) + (f.preco_ton ? ' — R$ ' + Number(f.preco_ton).toFixed(2) + '/ton' : ' — <span style="color:var(--danger);">sem preço</span>') + '<br><span class="specs">' + especs + '</span></span>' +
+      '<span style="display:flex;gap:8px;">' +
+        '<button type="button" class="btn-mini" data-editprice="' + f.id + '">Editar preço</button>' +
+        '<button type="button" class="btn-mini del" data-delmf="' + f.id + '">Remover</button>' +
+      '</span></div>';
+  }).join('');
+  list.querySelectorAll('[data-delmf]').forEach(btn => btn.addEventListener('click', () => excluirMinhaFormula(btn.dataset.delmf)));
+  list.querySelectorAll('[data-editprice]').forEach(btn => btn.addEventListener('click', () => editarPreco(btn.dataset.editprice)));
+}
+
+async function excluirMinhaFormula(id){
+  const { error } = await supabaseClient.from('minhas_formulas').delete().eq('id', id);
+  if(error) return;
+  await carregarTudo();
+}
+
+async function editarPreco(id){
+  const f = minhasFormulas.find(x => x.id === id);
+  const novo = prompt('Novo preço (R$/ton) para ' + f.nome + ':', f.preco_ton || '');
+  if(novo === null) return;
+  const valor = parseFloat(novo);
+  if(isNaN(valor)) return;
+  const { error } = await supabaseClient.from('minhas_formulas').update({ preco_ton: valor, updated_at: new Date().toISOString() }).eq('id', id);
+  if(error) return;
+  await carregarTudo();
+}
+
+// ---- Calculadora (mesmo motor do Comparador) ----
+function renderSelecaoCalcular(){
+  const el = document.getElementById('selecaoCalcular');
+  const comPreco = minhasFormulas.filter(f => f.preco_ton);
+  if(comPreco.length === 0){ el.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Adicione formulações com preço na aba "Minhas Formulações" primeiro.</p>'; return; }
+  el.innerHTML = comPreco.map(f =>
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:8px;"><input type="checkbox" class="calc-check" value="' + f.id + '" checked> ' + escapeHtml(f.nome) + '</label>'
+  ).join('');
+}
+
+function combinacoes(arr, k){
+  const resultado = [];
+  function backtrack(start, atual){
+    if(atual.length === k){ resultado.push(atual.slice()); return; }
+    for(let i = start; i < arr.length; i++){ atual.push(arr[i]); backtrack(i + 1, atual); atual.pop(); }
+  }
+  backtrack(0, []);
+  return resultado;
+}
+function resolverSistemaLinear(A, b){
+  const n = A.length;
+  const M = A.map((row, i) => row.concat([b[i]]));
+  for(let col = 0; col < n; col++){
+    let pivotRow = col;
+    for(let r = col + 1; r < n; r++){ if(Math.abs(M[r][col]) > Math.abs(M[pivotRow][col])) pivotRow = r; }
+    if(Math.abs(M[pivotRow][col]) < 1e-9) return null;
+    [M[col], M[pivotRow]] = [M[pivotRow], M[col]];
+    const pivotVal = M[col][col];
+    for(let c = col; c <= n; c++) M[col][c] /= pivotVal;
+    for(let r = 0; r < n; r++){ if(r === col) continue; const factor = M[r][col]; for(let c = col; c <= n; c++) M[r][c] -= factor * M[col][c]; }
+  }
+  return M.map(row => row[n]);
+}
+function resolverMenorCusto(targets, catalogo){
+  const nutrientKeys = Object.keys(targets).filter(k => targets[k] > 0);
+  const m = nutrientKeys.length;
+  if(m === 0) return [];
+  const produtos = catalogo.filter(f => f.preco_ton);
+  const resultados = [];
+  const vistos = new Set();
+  for(let k = 1; k <= Math.min(m, produtos.length); k++){
+    const prodCombos = combinacoes(produtos, k);
+    const nutCombos = combinacoes(nutrientKeys, k);
+    prodCombos.forEach(prodSet => {
+      nutCombos.forEach(nutSet => {
+        const A = nutSet.map(nk => prodSet.map(p => (p[nk] || 0) / 100));
+        const b = nutSet.map(nk => targets[nk]);
+        const doses = resolverSistemaLinear(A, b);
+        if(!doses) return;
+        if(doses.some(d => d < -1e-6)) return;
+        const dosesClean = doses.map(d => Math.max(d, 0));
+        const delivered = {};
+        nutrientKeys.forEach(nk => { delivered[nk] = prodSet.reduce((s, p, i) => s + (p[nk] || 0) / 100 * dosesClean[i], 0); });
+        const feasible = nutrientKeys.every(nk => delivered[nk] >= targets[nk] - 1e-6);
+        if(!feasible) return;
+        const itens = prodSet.map((p, i) => ({ formulacao: p, dose: dosesClean[i] })).filter(x => x.dose > 1e-6);
+        if(itens.length === 0) return;
+        const assinatura = itens.map(x => x.formulacao.id).sort().join('|');
+        const custoHa = itens.reduce((s, x) => s + (x.formulacao.preco_ton * x.dose / 1000), 0);
+        if(vistos.has(assinatura)){
+          const existente = resultados.find(r => r.assinatura === assinatura);
+          if(existente && custoHa < existente.custoHa){ existente.custoHa = custoHa; existente.itens = itens; existente.delivered = delivered; }
+          return;
+        }
+        vistos.add(assinatura);
+        resultados.push({ assinatura, itens, custoHa, delivered });
+      });
+    });
+  }
+  resultados.sort((a, b) => a.custoHa - b.custoHa);
+  return resultados;
+}
+
+document.getElementById('calcularBtn').addEventListener('click', async () => {
+  const errEl = document.getElementById('calcError');
+  errEl.style.display = 'none';
+  document.getElementById('paywallArea').innerHTML = '';
+
+  if(!perfil.pago && perfil.calculos_usados >= LIMITE_GRATIS){
+    mostrarPaywall();
+    return;
+  }
+
+  const idsSelecionadas = Array.from(document.querySelectorAll('.calc-check:checked')).map(c => c.value);
+  const targets = {
+    n: parseFloat(document.getElementById('targetN').value) || 0,
+    p2o5: parseFloat(document.getElementById('targetP').value) || 0,
+    k2o: parseFloat(document.getElementById('targetK').value) || 0,
+    s: parseFloat(document.getElementById('targetS').value) || 0
+  };
+  if(!Object.values(targets).some(v => v > 0)){ errEl.textContent = 'Informe pelo menos um nutriente.'; errEl.style.display = 'block'; return; }
+  if(idsSelecionadas.length === 0){ errEl.textContent = 'Marque pelo menos uma formulação.'; errEl.style.display = 'block'; return; }
+
+  const catalogo = minhasFormulas.filter(f => idsSelecionadas.includes(f.id));
+  const resultados = resolverMenorCusto(targets, catalogo);
+  const container = document.getElementById('resultadoCalculo');
+
+  if(resultados.length === 0){
+    container.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Não encontrei combinação que atenda essa exigência com as formulações marcadas.</p>';
+  }else{
+    let html = '<p style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">' + resultados.length + (resultados.length === 1 ? ' combinação encontrada' : ' combinações encontradas') + '.</p>';
+    resultados.forEach((r, idx) => {
+      const linhasItens = r.itens.map(x => '<div class="hist-item">' + escapeHtml(x.formulacao.nome) + ' — ' + x.dose.toFixed(1) + ' kg/ha (R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '/ha)</div>').join('');
+      const entregaTxt = Object.keys(targets).filter(k => targets[k] > 0).map(k => {
+        const label = k === 'n' ? 'N' : k === 'p2o5' ? 'P2O5' : k === 'k2o' ? 'K2O' : 'S';
+        return label + ': ' + r.delivered[k].toFixed(1) + '/' + targets[k].toFixed(1) + ' kg/ha';
+      }).join(' · ');
+      html += '<div class="proposta-card" style="margin-bottom:12px;">' +
+        '<div class="proposta-head"><span>' + (idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx+1)) + '</span><span class="tipo-badge">R$ ' + r.custoHa.toFixed(2) + '/ha</span></div>' +
+        '<div style="padding:10px 14px;">' + linhasItens + '</div>' +
+        '<div style="padding:6px 14px 10px;font-size:11.5px;color:var(--ink-faint);">Entrega: ' + escapeHtml(entregaTxt) + '</div>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  if(!perfil.pago){
+    perfil.calculos_usados += 1;
+    await supabaseClient.from('perfis').update({ calculos_usados: perfil.calculos_usados, updated_at: new Date().toISOString() }).eq('user_id', currentUserId);
+    renderUsageNote();
+    if(perfil.calculos_usados >= LIMITE_GRATIS){
+      setTimeout(mostrarPaywall, 400);
+    }
+  }
+});
+
+checkSession();
+
+} catch (initError) {
+  const errEl = document.getElementById('loginError');
+  if(errEl){ errEl.textContent = 'Erro ao carregar: ' + initError.message; errEl.style.display = 'block'; }
+  console.error(initError);
+}
+</script>
+</body>
+</html>
