@@ -320,7 +320,15 @@
       </div>
       <label style="font-size:12.5px;">Micronutrientes (opcional)</label>
       <div id="microsFormula"></div>
-      <button type="button" class="export-btn" id="addMicroBtn" style="margin:6px 0 16px;">+ Adicionar micronutriente</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">
+        <button type="button" class="export-btn micro-atalho" data-micro="Zn" style="padding:4px 10px;">+ Zn</button>
+        <button type="button" class="export-btn micro-atalho" data-micro="B" style="padding:4px 10px;">+ B</button>
+        <button type="button" class="export-btn micro-atalho" data-micro="Cu" style="padding:4px 10px;">+ Cu</button>
+        <button type="button" class="export-btn micro-atalho" data-micro="Mn" style="padding:4px 10px;">+ Mn</button>
+        <button type="button" class="export-btn micro-atalho" data-micro="Fe" style="padding:4px 10px;">+ Fe</button>
+        <button type="button" class="export-btn micro-atalho" data-micro="Mo" style="padding:4px 10px;">+ Mo</button>
+      </div>
+      <button type="button" class="export-btn" id="addMicroBtn" style="margin:6px 0 16px;">+ Outro micronutriente</button>
       <div class="composer-row" style="justify-content:flex-start;gap:10px;">
         <button class="send-btn" id="salvarFormulaBtn">Salvar no catálogo</button>
       </div>
@@ -1368,6 +1376,14 @@ function addMicroRow(nome, valor){
   div.querySelector('.rm-item').addEventListener('click', () => div.remove());
 }
 document.getElementById('addMicroBtn').addEventListener('click', () => addMicroRow());
+document.querySelectorAll('.micro-atalho').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const nome = btn.dataset.micro;
+    const jaExiste = Array.from(document.querySelectorAll('#microsFormula .micro-nome')).some(inp => inp.value.trim().toLowerCase() === nome.toLowerCase());
+    if(jaExiste) return;
+    addMicroRow(nome, '');
+  });
+});
 
 function lerMicros(){
   const micros = {};
