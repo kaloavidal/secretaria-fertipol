@@ -113,27 +113,18 @@
 <div class="app" id="mainApp" style="display:none;">
   <header>
     <h1>AduboCalc</h1>
-    <p>Marque as formulações que você tem disponível, informe o preço, e descubra a combinação de menor custo.</p>
+    <p>Informe o preço das formulações que você tem disponível e descubra a combinação de menor custo.</p>
   </header>
 
-  <div class="tabs">
-    <button class="tab-btn active" id="tabMinhas">Minhas Formulações</button>
-    <button class="tab-btn" id="tabCalcular">Calcular</button>
-  </div>
+  <div class="usage-note" id="usageNote"></div>
 
-  <div id="viewMinhas">
-    <div class="composer">
-      <label>Adicionar do catálogo padrão</label>
-      <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Marque as que você tem disponível e informe o preço de hoje (R$/ton).</p>
-      <input class="search" id="padraoSearch" placeholder="Buscar formulação" style="width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;margin-bottom:10px;">
-      <div id="listaPadrao"></div>
-      <button class="send-btn" id="adicionarPadraoBtn" style="margin-top:12px;">Adicionar selecionadas</button>
-      <div class="error" id="padraoError" style="display:none;"></div>
-      <div class="confirm" id="padraoConfirm" style="display:none;"></div>
-    </div>
+  <div class="composer">
+    <label>Preço de hoje (R$/ton) — só preencha as que você tem disponível</label>
+    <input class="search" id="padraoSearch" placeholder="Buscar formulação" style="width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;margin:8px 0 10px;">
+    <div id="listaPadrao"></div>
 
-    <div class="composer">
-      <label>Adicionar formulação personalizada</label>
+    <button type="button" class="export-btn" id="mostrarCustomBtn" style="margin-top:12px;">+ Adicionar formulação personalizada</button>
+    <div id="customFormArea" style="display:none;margin-top:10px;">
       <div class="grid2" style="margin-bottom:10px;">
         <input type="text" id="custNome" placeholder="Nome (ex: NPK 15-15-15)">
         <input type="number" id="custPreco" placeholder="R$/ton" min="0" step="any">
@@ -144,32 +135,23 @@
         <input type="number" id="custK" placeholder="K2O %" min="0" step="any">
         <input type="number" id="custS" placeholder="S %" min="0" step="any">
       </div>
-      <button class="send-btn" id="addCustomBtn">Adicionar personalizada</button>
+      <button class="export-btn" id="addCustomBtn">Adicionar à lista</button>
       <div class="error" id="customError" style="display:none;"></div>
     </div>
 
-    <p class="count" id="minhasCount" style="font-size:12.5px;color:var(--ink-faint);"></p>
-    <div id="minhasList"></div>
+    <label style="margin-top:18px;display:block;">Com quantos pontos de cada nutriente quer trabalhar? (kg/ha)</label>
+    <div class="grid4" style="margin-bottom:14px;">
+      <input type="number" id="targetN" placeholder="N" min="0" step="any">
+      <input type="number" id="targetP" placeholder="P2O5" min="0" step="any">
+      <input type="number" id="targetK" placeholder="K2O" min="0" step="any">
+      <input type="number" id="targetS" placeholder="S" min="0" step="any">
+    </div>
+    <button class="send-btn" id="calcularBtn">Calcular menor custo</button>
+    <div class="error" id="calcError" style="display:none;"></div>
   </div>
 
-  <div id="viewCalcular" style="display:none;">
-    <div class="usage-note" id="usageNote"></div>
-    <div class="composer">
-      <label>Selecione as formulações a considerar</label>
-      <div id="selecaoCalcular" style="margin-bottom:14px;"></div>
-      <label>Exigência da lavoura (kg/ha)</label>
-      <div class="grid4" style="margin-bottom:14px;">
-        <input type="number" id="targetN" placeholder="N" min="0" step="any">
-        <input type="number" id="targetP" placeholder="P2O5" min="0" step="any">
-        <input type="number" id="targetK" placeholder="K2O" min="0" step="any">
-        <input type="number" id="targetS" placeholder="S" min="0" step="any">
-      </div>
-      <button class="send-btn" id="calcularBtn">Calcular menor custo</button>
-      <div class="error" id="calcError" style="display:none;"></div>
-    </div>
-    <div id="resultadoCalculo"></div>
-    <div id="paywallArea"></div>
-  </div>
+  <div id="resultadoCalculo"></div>
+  <div id="paywallArea"></div>
 
   <div style="margin-top:24px;text-align:center;">
     <button class="logout-btn" id="logoutBtn">Sair</button>
@@ -212,6 +194,7 @@ async function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
   await carregarPerfil();
+  renderUsageNote();
   await carregarTudo();
 }
 
@@ -267,22 +250,6 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   showLogin();
 });
 
-// ---- Abas ----
-document.getElementById('tabMinhas').addEventListener('click', () => {
-  document.getElementById('tabMinhas').classList.add('active');
-  document.getElementById('tabCalcular').classList.remove('active');
-  document.getElementById('viewMinhas').style.display = 'block';
-  document.getElementById('viewCalcular').style.display = 'none';
-});
-document.getElementById('tabCalcular').addEventListener('click', () => {
-  document.getElementById('tabCalcular').classList.add('active');
-  document.getElementById('tabMinhas').classList.remove('active');
-  document.getElementById('viewCalcular').style.display = 'block';
-  document.getElementById('viewMinhas').style.display = 'none';
-  renderSelecaoCalcular();
-  renderUsageNote();
-});
-
 // ---- Perfil / uso gratuito ----
 async function carregarPerfil(){
   let { data, error } = await supabaseClient.from('perfis').select('*').eq('user_id', currentUserId).maybeSingle();
@@ -334,53 +301,55 @@ async function carregarTudo(){
   formulasPadrao = padrao || [];
   minhasFormulas = minhas || [];
   renderPadrao();
-  renderMinhas();
 }
 
-// ---- Catálogo padrão ----
+// ---- Lista única: catálogo padrão + personalizadas, preço inline ----
 function renderPadrao(){
   const el = document.getElementById('listaPadrao');
-  const jaAdicionadas = new Set(minhasFormulas.map(f => f.nome));
-  const visiveis = padraoSearchValue
+  const nomesPadrao = new Set(formulasPadrao.map(f => f.nome));
+  const customs = minhasFormulas.filter(f => !nomesPadrao.has(f.nome));
+
+  const visiveisPadrao = padraoSearchValue
     ? formulasPadrao.filter(f => f.nome.toLowerCase().includes(padraoSearchValue.toLowerCase()))
     : formulasPadrao;
-  el.innerHTML = visiveis.map(f => {
+  const visiveisCustom = padraoSearchValue
+    ? customs.filter(f => f.nome.toLowerCase().includes(padraoSearchValue.toLowerCase()))
+    : customs;
+
+  const linhaPadrao = (f) => {
     const especs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null].filter(Boolean).join(' · ');
-    const jaTem = jaAdicionadas.has(f.nome);
+    const existente = minhasFormulas.find(m => m.nome === f.nome);
+    const precoAtual = existente && existente.preco_ton !== null && existente.preco_ton !== undefined ? existente.preco_ton : '';
     return '<div class="padrao-row">' +
-      '<input type="checkbox" class="padrao-check" value="' + f.id + '" ' + (jaTem ? 'disabled' : '') + '>' +
-      '<span class="nome">' + escapeHtml(f.nome) + (jaTem ? ' <span style="color:var(--ink-faint);font-size:11.5px;">(já no seu catálogo)</span>' : '') + '<br><span class="specs" style="font-size:11.5px;color:var(--ink-faint);">' + especs + '</span></span>' +
-      '<input type="number" class="padrao-preco" data-id="' + f.id + '" placeholder="R$/ton" min="0" step="any" ' + (jaTem ? 'disabled' : '') + '>' +
+      '<span class="nome">' + escapeHtml(f.nome) + '<br><span class="specs" style="font-size:11.5px;color:var(--ink-faint);">' + especs + '</span></span>' +
+      '<input type="number" class="preco-input" data-padrao-id="' + f.id + '" data-nome="' + escapeHtml(f.nome) + '" placeholder="R$/ton" min="0" step="any" value="' + precoAtual + '">' +
       '</div>';
-  }).join('');
+  };
+  const linhaCustom = (f) => {
+    const especs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null].filter(Boolean).join(' · ');
+    return '<div class="padrao-row">' +
+      '<span class="nome">' + escapeHtml(f.nome) + ' <span style="font-size:11px;color:var(--green-deep);">(personalizada)</span><br><span class="specs" style="font-size:11.5px;color:var(--ink-faint);">' + especs + '</span></span>' +
+      '<input type="number" class="preco-input" data-custom-id="' + f.id + '" data-nome="' + escapeHtml(f.nome) + '" placeholder="R$/ton" min="0" step="any" value="' + (f.preco_ton !== null && f.preco_ton !== undefined ? f.preco_ton : '') + '">' +
+      '<button type="button" class="btn-mini del" data-delcustom="' + f.id + '" style="margin-left:6px;">✕</button>' +
+      '</div>';
+  };
+
+  el.innerHTML = visiveisCustom.map(linhaCustom).join('') + visiveisPadrao.map(linhaPadrao).join('');
+  el.querySelectorAll('[data-delcustom]').forEach(btn => btn.addEventListener('click', () => excluirCustom(btn.dataset.delcustom)));
 }
 document.getElementById('padraoSearch').addEventListener('input', (e) => { padraoSearchValue = e.target.value; renderPadrao(); });
 
-document.getElementById('adicionarPadraoBtn').addEventListener('click', async () => {
-  const checks = Array.from(document.querySelectorAll('.padrao-check:checked'));
-  const errEl = document.getElementById('padraoError');
-  const confEl = document.getElementById('padraoConfirm');
-  errEl.style.display = 'none'; confEl.style.display = 'none';
-  if(checks.length === 0){ errEl.textContent = 'Marque pelo menos uma formulação.'; errEl.style.display = 'block'; return; }
-
-  const linhas = [];
-  for(const chk of checks){
-    const id = chk.value;
-    const f = formulasPadrao.find(x => x.id === id);
-    const precoInput = document.querySelector('.padrao-preco[data-id="' + id + '"]');
-    const preco = precoInput.value ? parseFloat(precoInput.value) : null;
-    linhas.push({
-      user_id: currentUserId, nome: f.nome, n: f.n, p2o5: f.p2o5, k2o: f.k2o, s: f.s,
-      micros: f.micros || {}, preco_ton: preco
-    });
-  }
-  const { error } = await supabaseClient.from('minhas_formulas').insert(linhas);
-  if(error){ errEl.textContent = 'Não consegui adicionar: ' + error.message; errEl.style.display = 'block'; return; }
-  confEl.textContent = 'Adicionado ao seu catálogo.'; confEl.style.display = 'block';
+async function excluirCustom(id){
+  const { error } = await supabaseClient.from('minhas_formulas').delete().eq('id', id);
+  if(error) return;
   await carregarTudo();
-});
+}
 
 // ---- Formulação personalizada ----
+document.getElementById('mostrarCustomBtn').addEventListener('click', () => {
+  const area = document.getElementById('customFormArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+});
 document.getElementById('addCustomBtn').addEventListener('click', async () => {
   const nome = document.getElementById('custNome').value.trim();
   const preco = document.getElementById('custPreco').value;
@@ -405,54 +374,11 @@ document.getElementById('addCustomBtn').addEventListener('click', async () => {
   document.getElementById('custP').value = '';
   document.getElementById('custK').value = '';
   document.getElementById('custS').value = '';
+  document.getElementById('customFormArea').style.display = 'none';
   await carregarTudo();
 });
 
-// ---- Minhas formulações ----
-function renderMinhas(){
-  const list = document.getElementById('minhasList');
-  const count = document.getElementById('minhasCount');
-  count.textContent = minhasFormulas.length + (minhasFormulas.length === 1 ? ' formulação no seu catálogo' : ' formulações no seu catálogo');
-  list.innerHTML = minhasFormulas.map(f => {
-    const especs = ['N ' + (f.n||0) + '%', 'P2O5 ' + (f.p2o5||0) + '%', 'K2O ' + (f.k2o||0) + '%', f.s ? ('S ' + f.s + '%') : null].filter(Boolean).join(' · ');
-    return '<div class="catalogo-row">' +
-      '<span class="nome">' + escapeHtml(f.nome) + (f.preco_ton ? ' — R$ ' + Number(f.preco_ton).toFixed(2) + '/ton' : ' — <span style="color:var(--danger);">sem preço</span>') + '<br><span class="specs">' + especs + '</span></span>' +
-      '<span style="display:flex;gap:8px;">' +
-        '<button type="button" class="btn-mini" data-editprice="' + f.id + '">Editar preço</button>' +
-        '<button type="button" class="btn-mini del" data-delmf="' + f.id + '">Remover</button>' +
-      '</span></div>';
-  }).join('');
-  list.querySelectorAll('[data-delmf]').forEach(btn => btn.addEventListener('click', () => excluirMinhaFormula(btn.dataset.delmf)));
-  list.querySelectorAll('[data-editprice]').forEach(btn => btn.addEventListener('click', () => editarPreco(btn.dataset.editprice)));
-}
-
-async function excluirMinhaFormula(id){
-  const { error } = await supabaseClient.from('minhas_formulas').delete().eq('id', id);
-  if(error) return;
-  await carregarTudo();
-}
-
-async function editarPreco(id){
-  const f = minhasFormulas.find(x => x.id === id);
-  const novo = prompt('Novo preço (R$/ton) para ' + f.nome + ':', f.preco_ton || '');
-  if(novo === null) return;
-  const valor = parseFloat(novo);
-  if(isNaN(valor)) return;
-  const { error } = await supabaseClient.from('minhas_formulas').update({ preco_ton: valor, updated_at: new Date().toISOString() }).eq('id', id);
-  if(error) return;
-  await carregarTudo();
-}
-
-// ---- Calculadora (mesmo motor do Comparador) ----
-function renderSelecaoCalcular(){
-  const el = document.getElementById('selecaoCalcular');
-  const comPreco = minhasFormulas.filter(f => f.preco_ton);
-  if(comPreco.length === 0){ el.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Adicione formulações com preço na aba "Minhas Formulações" primeiro.</p>'; return; }
-  el.innerHTML = comPreco.map(f =>
-    '<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:8px;"><input type="checkbox" class="calc-check" value="' + f.id + '" checked> ' + escapeHtml(f.nome) + '</label>'
-  ).join('');
-}
-
+// ---- Calculadora ----
 function combinacoes(arr, k){
   const resultado = [];
   function backtrack(start, atual){
@@ -516,6 +442,28 @@ function resolverMenorCusto(targets, catalogo){
   return resultados;
 }
 
+async function salvarPrecosDigitados(){
+  const inputs = Array.from(document.querySelectorAll('.preco-input'));
+  const upserts = [];
+  for(const inp of inputs){
+    if(!inp.dataset.padraoId) continue; // só sincroniza os do catálogo padrão; personalizadas já são salvas ao criar
+    const valor = inp.value ? parseFloat(inp.value) : null;
+    const nome = inp.dataset.nome;
+    const existente = minhasFormulas.find(m => m.nome === nome);
+    if(existente){
+      if(existente.preco_ton !== valor){
+        await supabaseClient.from('minhas_formulas').update({ preco_ton: valor, updated_at: new Date().toISOString() }).eq('id', existente.id);
+      }
+    }else if(valor !== null){
+      const f = formulasPadrao.find(x => x.id === inp.dataset.padraoId);
+      await supabaseClient.from('minhas_formulas').insert({
+        user_id: currentUserId, nome: f.nome, n: f.n, p2o5: f.p2o5, k2o: f.k2o, s: f.s,
+        micros: f.micros || {}, preco_ton: valor
+      });
+    }
+  }
+}
+
 document.getElementById('calcularBtn').addEventListener('click', async () => {
   const errEl = document.getElementById('calcError');
   errEl.style.display = 'none';
@@ -526,7 +474,6 @@ document.getElementById('calcularBtn').addEventListener('click', async () => {
     return;
   }
 
-  const idsSelecionadas = Array.from(document.querySelectorAll('.calc-check:checked')).map(c => c.value);
   const targets = {
     n: parseFloat(document.getElementById('targetN').value) || 0,
     p2o5: parseFloat(document.getElementById('targetP').value) || 0,
@@ -534,14 +481,33 @@ document.getElementById('calcularBtn').addEventListener('click', async () => {
     s: parseFloat(document.getElementById('targetS').value) || 0
   };
   if(!Object.values(targets).some(v => v > 0)){ errEl.textContent = 'Informe pelo menos um nutriente.'; errEl.style.display = 'block'; return; }
-  if(idsSelecionadas.length === 0){ errEl.textContent = 'Marque pelo menos uma formulação.'; errEl.style.display = 'block'; return; }
 
-  const catalogo = minhasFormulas.filter(f => idsSelecionadas.includes(f.id));
+  const catalogo = [];
+  document.querySelectorAll('.preco-input').forEach(inp => {
+    const valor = inp.value ? parseFloat(inp.value) : null;
+    if(!valor || valor <= 0) return;
+    if(inp.dataset.padraoId){
+      const f = formulasPadrao.find(x => x.id === inp.dataset.padraoId);
+      if(f) catalogo.push({ id: f.id, nome: f.nome, n: f.n, p2o5: f.p2o5, k2o: f.k2o, s: f.s, preco_ton: valor });
+    }else if(inp.dataset.customId){
+      const f = minhasFormulas.find(x => x.id === inp.dataset.customId);
+      if(f) catalogo.push({ id: f.id, nome: f.nome, n: f.n, p2o5: f.p2o5, k2o: f.k2o, s: f.s, preco_ton: valor });
+    }
+  });
+
+  if(catalogo.length === 0){ errEl.textContent = 'Informe o preço de pelo menos uma formulação.'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('calcularBtn');
+  btn.disabled = true; btn.textContent = 'Calculando…';
+  await salvarPrecosDigitados();
+  await carregarTudo();
+  btn.disabled = false; btn.textContent = 'Calcular menor custo';
+
   const resultados = resolverMenorCusto(targets, catalogo);
   const container = document.getElementById('resultadoCalculo');
 
   if(resultados.length === 0){
-    container.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Não encontrei combinação que atenda essa exigência com as formulações marcadas.</p>';
+    container.innerHTML = '<p style="font-size:13px;color:var(--ink-faint);">Não encontrei combinação que atenda essa exigência com os preços informados.</p>';
   }else{
     let html = '<p style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">' + resultados.length + (resultados.length === 1 ? ' combinação encontrada' : ' combinações encontradas') + '.</p>';
     resultados.forEach((r, idx) => {
@@ -579,3 +545,4 @@ checkSession();
 </script>
 </body>
 </html>
+
