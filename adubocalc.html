@@ -119,7 +119,15 @@
   <div class="usage-note" id="usageNote"></div>
 
   <div class="composer">
-    <label>Preço de hoje (R$/ton) — só preencha as que você tem disponível</label>
+    <label>Com quantos pontos de cada nutriente quer trabalhar? (kg/ha)</label>
+    <div class="grid4" style="margin-bottom:14px;">
+      <input type="number" id="targetN" placeholder="N" min="0" step="any">
+      <input type="number" id="targetP" placeholder="P2O5" min="0" step="any">
+      <input type="number" id="targetK" placeholder="K2O" min="0" step="any">
+      <input type="number" id="targetS" placeholder="S" min="0" step="any">
+    </div>
+
+    <label style="margin-top:18px;display:block;">Preço de hoje (R$/ton) — só preencha as que você tem disponível</label>
     <input class="search" id="padraoSearch" placeholder="Buscar formulação" style="width:100%;font-size:13.5px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;margin:8px 0 10px;">
     <div id="listaPadrao"></div>
 
@@ -139,14 +147,7 @@
       <div class="error" id="customError" style="display:none;"></div>
     </div>
 
-    <label style="margin-top:18px;display:block;">Com quantos pontos de cada nutriente quer trabalhar? (kg/ha)</label>
-    <div class="grid4" style="margin-bottom:14px;">
-      <input type="number" id="targetN" placeholder="N" min="0" step="any">
-      <input type="number" id="targetP" placeholder="P2O5" min="0" step="any">
-      <input type="number" id="targetK" placeholder="K2O" min="0" step="any">
-      <input type="number" id="targetS" placeholder="S" min="0" step="any">
-    </div>
-    <button class="send-btn" id="calcularBtn">Calcular menor custo</button>
+    <button class="send-btn" id="calcularBtn" style="margin-top:18px;">Calcular menor custo</button>
     <div class="error" id="calcError" style="display:none;"></div>
   </div>
 
