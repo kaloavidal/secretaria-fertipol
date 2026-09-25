@@ -512,14 +512,29 @@ document.getElementById('calcularBtn').addEventListener('click', async () => {
     let html = '<p style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">' + resultados.length + (resultados.length === 1 ? ' combinação encontrada' : ' combinações encontradas') + '.</p>';
     resultados.forEach((r, idx) => {
       const linhasItens = r.itens.map(x => '<div class="hist-item">' + escapeHtml(x.formulacao.nome) + ' — ' + x.dose.toFixed(1) + ' kg/ha (R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '/ha)</div>').join('');
-      const entregaTxt = Object.keys(targets).filter(k => targets[k] > 0).map(k => {
+      const LIMITE_EXCESSO = 1.10; // mais de 10% acima do pedido já chama atenção
+      const excessos = [];
+      const entregaHtml = Object.keys(targets).filter(k => targets[k] > 0).map(k => {
         const label = k === 'n' ? 'N' : k === 'p2o5' ? 'P2O5' : k === 'k2o' ? 'K2O' : 'S';
-        return label + ': ' + r.delivered[k].toFixed(1) + '/' + targets[k].toFixed(1) + ' kg/ha';
+        const entregue = r.delivered[k];
+        const alvo = targets[k];
+        const razao = entregue / alvo;
+        const texto = label + ': ' + entregue.toFixed(1) + '/' + alvo.toFixed(1) + ' kg/ha';
+        if(razao > LIMITE_EXCESSO){
+          const pct = Math.round((razao - 1) * 100);
+          excessos.push(label + ' (+' + pct + '%)');
+          return '<span style="color:var(--amber);font-weight:500;">' + escapeHtml(texto) + ' ⚠</span>';
+        }
+        return escapeHtml(texto);
       }).join(' · ');
+      const avisoExcesso = excessos.length
+        ? '<div style="padding:6px 14px;font-size:11.5px;color:var(--amber);background:var(--amber-tint);">Aplica mais ' + escapeHtml(excessos.join(', ')) + ' do que o pedido, pra cobrir os outros nutrientes.</div>'
+        : '';
       html += '<div class="proposta-card" style="margin-bottom:12px;">' +
         '<div class="proposta-head"><span>' + (idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx+1)) + '</span><span class="tipo-badge">R$ ' + r.custoHa.toFixed(2) + '/ha</span></div>' +
         '<div style="padding:10px 14px;">' + linhasItens + '</div>' +
-        '<div style="padding:6px 14px 10px;font-size:11.5px;color:var(--ink-faint);">Entrega: ' + escapeHtml(entregaTxt) + '</div>' +
+        avisoExcesso +
+        '<div style="padding:6px 14px 10px;font-size:11.5px;color:var(--ink-faint);">Entrega: ' + entregaHtml + '</div>' +
         '</div>';
     });
     container.innerHTML = html;
