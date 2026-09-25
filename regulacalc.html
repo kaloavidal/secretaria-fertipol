@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RegulaCalc — Regulagem de Implementos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --verde:#2f6b3a; --verde-esc:#1f4a27; --verde-cl:#e8f2e9;
+    --terra:#8a5a2b; --fundo:#f6f4ee; --card:#fff; --txt:#1f2a22; --mut:#667067;
+    --borda:#dcd8cc; --ok:#2f8a3e; --at:#c98a00; --ruim:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--fundo);color:var(--txt);font-size:16px}
+  header{background:var(--verde-esc);color:#fff;padding:14px 16px}
+  header h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
+  header p{margin:2px 0 0;font-size:.85rem;opacity:.85}
+  main{max-width:640px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:16px;margin-bottom:14px}
+  h2{font-size:1.1rem;margin:0 0 4px}
+  .sub{color:var(--mut);font-size:.88rem;margin:0 0 14px}
+  label{display:block;font-size:.9rem;font-weight:600;margin:10px 0 4px}
+  label small{font-weight:400;color:var(--mut)}
+  input{width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--borda);border-radius:8px;background:#fff}
+  input:focus{outline:2px solid var(--verde);border-color:var(--verde)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .secao{margin-top:16px;padding-top:12px;border-top:1px dashed var(--borda)}
+  .secao h3{font-size:.95rem;margin:0;color:var(--terra)}
+  button{font:inherit;cursor:pointer;border:none;border-radius:8px;padding:12px 16px;font-weight:600}
+  .btn{background:var(--verde);color:#fff;width:100%;margin-top:16px;font-size:1.05rem}
+  .btn:hover{background:var(--verde-esc)}
+  .btn-sec{background:transparent;color:var(--verde);border:1px solid var(--verde)}
+  .link{background:none;color:var(--verde);padding:6px 0;text-decoration:underline;font-weight:500}
+  .impl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .impl button{background:#fff;border:2px solid var(--borda);color:var(--txt);padding:12px 6px;font-size:.88rem;line-height:1.25}
+  .impl button span{display:block;font-size:1.5rem;margin-bottom:4px}
+  .impl button.ativo{border-color:var(--verde);background:var(--verde-cl);color:var(--verde-esc)}
+  .toggle{display:flex;gap:6px;margin:6px 0 4px}
+  .toggle button{flex:1;background:#fff;border:1px solid var(--borda);color:var(--txt);padding:9px;font-size:.9rem;font-weight:500}
+  .toggle button.ativo{background:var(--verde);color:#fff;border-color:var(--verde)}
+  .barra{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.85rem;color:var(--mut);margin-bottom:12px;flex-wrap:wrap}
+  .selo{background:var(--verde-cl);color:var(--verde-esc);padding:4px 10px;border-radius:20px;font-weight:600}
+  .res{margin-top:16px;display:none}
+  .res.show{display:block}
+  .linha{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #eee}
+  .linha:last-child{border-bottom:none}
+  .linha b{font-size:1.05rem;text-align:right;white-space:nowrap}
+  .destaque{background:var(--verde-cl);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px}
+  .destaque .v{font-size:1.9rem;font-weight:800;color:var(--verde-esc)}
+  .destaque .l{font-size:.85rem;color:var(--mut)}
+  .alerta{border-radius:10px;padding:12px;margin-top:10px;font-size:.93rem;border-left:5px solid}
+  .alerta.ok{background:#eaf6ec;border-color:var(--ok)}
+  .alerta.at{background:#fff6e0;border-color:var(--at)}
+  .alerta.ruim{background:#fdecea;border-color:var(--ruim)}
+  .nota{font-size:.82rem;color:var(--mut);margin-top:10px}
+  .erro{color:var(--ruim);font-size:.9rem;margin-top:8px;min-height:1em}
+  .oculto{display:none!important}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .modal .card{max-width:420px;width:100%;margin:0}
+  .whats{background:#25d366;color:#fff;width:100%;margin-top:10px}
+  footer{text-align:center;color:var(--mut);font-size:.8rem;padding:10px 16px 28px}
+  @media(max-width:420px){.impl button{font-size:.8rem}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>RegulaCalc</h1>
+  <p>Regulagem de semeadoras e adubadoras, direto no campo</p>
+</header>
+
+<main>
+  <!-- LOGIN / CADASTRO -->
+  <section id="telaLogin" class="card">
+    <h2 id="tituloLogin">Entrar</h2>
+    <p class="sub" id="subLogin">Acesse sua conta para calcular.</p>
+    <label for="email">E-mail</label>
+    <input id="email" type="email" autocomplete="email" placeholder="seu@email.com">
+    <label for="senha">Senha</label>
+    <input id="senha" type="password" autocomplete="current-password" placeholder="mínimo 6 caracteres">
+    <div class="erro" id="erroLogin"></div>
+    <button class="btn" id="btnLogin">Entrar</button>
+    <button class="link" id="trocaModo">Não tem conta? Criar conta grátis</button>
+  </section>
+
+  <!-- APP -->
+  <section id="telaApp" class="oculto">
+    <div class="barra">
+      <span id="usuario"></span>
+      <span class="selo" id="contador"></span>
+      <button class="link" id="btnSair">Sair</button>
+    </div>
+
+    <div class="impl" id="impl">
+      <button data-t="sementes" class="ativo"><span>🌱</span>Sementes<br>(semeadora)</button>
+      <button data-t="linha"><span>🚜</span>Adubo<br>na linha</button>
+      <button data-t="lanco"><span>🌾</span>Adubo<br>a lanço</button>
+    </div>
+
+    <!-- SEMENTES -->
+    <div class="card calc" id="c-sementes">
+      <h2>Sementes por metro</h2>
+      <p class="sub">Quantas sementes por metro a semeadora deve soltar para chegar na população desejada.</p>
+      <div class="grid">
+        <div><label>População desejada <small>(plantas/ha)</small></label><input id="s_pop" inputmode="decimal" placeholder="ex: 300000"></div>
+        <div><label>Espaçamento <small>(cm)</small></label><input id="s_esp" inputmode="decimal" placeholder="ex: 45"></div>
+        <div><label>Germinação <small>(%)</small></label><input id="s_germ" inputmode="decimal" placeholder="do rótulo, ex: 85"></div>
+        <div><label>Perdas no campo <small>(%, opcional)</small></label><input id="s_perda" inputmode="decimal" placeholder="ex: 5"></div>
+        <div><label>Peso de mil sementes <small>(g, opcional)</small></label><input id="s_pms" inputmode="decimal" placeholder="ex: 160"></div>
+        <div><label>Distância de conferência <small>(m)</small></label><input id="s_dist" inputmode="decimal" value="10"></div>
+      </div>
+      <div class="secao">
+        <h3>Conferência no campo <small style="font-weight:400;color:var(--mut)">(opcional)</small></h3>
+        <label>Sementes contadas nessa distância, em uma linha</label>
+        <input id="s_cont" inputmode="decimal" placeholder="ex: 165">
+      </div>
+      <div class="erro" id="e-sementes"></div>
+      <button class="btn" data-calc="sementes">Calcular</button>
+      <div class="res" id="r-sementes"></div>
+    </div>
+
+    <!-- ADUBO NA LINHA -->
+    <div class="card calc oculto" id="c-linha">
+      <h2>Adubo na linha</h2>
+      <p class="sub">Semeadora-adubadora: quanto adubo deve cair por metro e conferência da coleta.</p>
+      <div class="grid">
+        <div><label>Dose desejada <small>(kg/ha)</small></label><input id="l_dose" inputmode="decimal" placeholder="ex: 300"></div>
+        <div><label>Espaçamento <small>(cm)</small></label><input id="l_esp" inputmode="decimal" placeholder="ex: 45"></div>
+        <div><label>Distância percorrida <small>(m)</small></label><input id="l_dist" inputmode="decimal" value="50"></div>
+        <div><label>Linhas coletadas</label><input id="l_lin" inputmode="decimal" value="1"></div>
+      </div>
+      <div class="secao">
+        <h3>Conferência da coleta <small style="font-weight:400;color:var(--mut)">(opcional)</small></h3>
+        <label>Total coletado nas linhas <small>(g)</small></label>
+        <input id="l_col" inputmode="decimal" placeholder="ex: 690">
+      </div>
+      <div class="erro" id="e-linha"></div>
+      <button class="btn" data-calc="linha">Calcular</button>
+      <div class="res" id="r-linha"></div>
+    </div>
+
+    <!-- ADUBO A LANÇO -->
+    <div class="card calc oculto" id="c-lanco">
+      <h2>Adubo a lanço</h2>
+      <p class="sub">Distribuidor centrífugo ou pendular: vazão e conferência da coleta.</p>
+      <label>Como vai coletar?</label>
+      <div class="toggle" id="metodo">
+        <button data-m="dist" class="ativo">Andando uma distância</button>
+        <button data-m="tempo">Parado, por tempo</button>
+      </div>
+      <div class="grid">
+        <div><label>Dose desejada <small>(kg/ha)</small></label><input id="z_dose" inputmode="decimal" placeholder="ex: 200"></div>
+        <div><label>Largura de faixa <small>(m)</small></label><input id="z_larg" inputmode="decimal" placeholder="ex: 18"></div>
+        <div class="m-dist"><label>Distância percorrida <small>(m)</small></label><input id="z_dist" inputmode="decimal" value="50"></div>
+        <div class="m-tempo oculto"><label>Velocidade de trabalho <small>(km/h)</small></label><input id="z_vel" inputmode="decimal" placeholder="ex: 10"></div>
+        <div class="m-tempo oculto"><label>Tempo de coleta <small>(s)</small></label><input id="z_tempo" inputmode="decimal" value="60"></div>
+      </div>
+      <div class="secao">
+        <h3>Conferência da coleta <small style="font-weight:400;color:var(--mut)">(opcional)</small></h3>
+        <label>Total coletado <small>(kg)</small></label>
+        <input id="z_col" inputmode="decimal" placeholder="ex: 18">
+      </div>
+      <div class="erro" id="e-lanco"></div>
+      <button class="btn" data-calc="lanco">Calcular</button>
+      <div class="res" id="r-lanco"></div>
+    </div>
+  </section>
+</main>
+
+<!-- PAYWALL -->
+<div class="modal oculto" id="paywall">
+  <div class="card">
+    <h2>Seus cálculos grátis acabaram</h2>
+    <p class="sub">Libere o acesso completo ao RegulaCalc para continuar regulando suas máquinas sem limite.</p>
+    <button class="btn" id="btnPagar">Liberar acesso</button>
+    <button class="btn whats" id="btnPaguei">Já paguei — avisar no WhatsApp</button>
+    <p class="nota">Depois do pagamento, a liberação é feita em até algumas horas. Use o mesmo e-mail do cadastro.</p>
+    <button class="link" id="fecharPaywall">Fechar</button>
+  </div>
+</div>
+
+<footer>Kaloã Vidal · Eng. Agrônomo · Sidrolândia/MS</footer>
+
+<script>
+/* ===== CONFIGURAÇÃO ===== */
+const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
+const LINK_PAGAMENTO = ''; // TODO: colar aqui o link do Mercado Pago do RegulaCalc
+const WHATSAPP = '5567996426423';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+let modoCadastro = false, status = null, metodoLanco = 'dist', ultimoTexto = {};
+
+/* ===== NÚMEROS (aceita 0,45 / 300.000 / 300000) ===== */
+function num(id){
+  let v = ($(id).value || '').trim().replace(/\s/g,'');
+  if (!v) return NaN;
+  if (v.includes(',')) v = v.replace(/\./g,'').replace(',','.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(v)) v = v.replace(/\./g,'');
+  return parseFloat(v);
+}
+// espaçamento digitado em metros (ex: 0,45) vira cm
+const espCm = v => (v>0 && v<3) ? v*100 : v;
+const fmt = (n, d=1) => n.toLocaleString('pt-BR',{minimumFractionDigits:0, maximumFractionDigits:d});
+const pct = n => (n>0?'+':'') + fmt(n*100,1) + '%';
+const linha = (l, v) => `<div class="linha"><span>${l}</span><b>${v}</b></div>`;
+
+function veredito(real, meta, unid){
+  const d = real/meta - 1, a = Math.abs(d);
+  const cls = a <= 0.05 ? 'ok' : a <= 0.10 ? 'at' : 'ruim';
+  const acao = d > 0 ? 'diminuir' : 'aumentar';
+  const ajuste = Math.abs(meta/real - 1);
+  let txt;
+  if (cls === 'ok') txt = `<b>Regulagem OK.</b> Desvio de ${pct(d)} — dentro da tolerância de ±5%.`;
+  else txt = `<b>${cls==='at'?'Atenção':'Fora da regulagem'}:</b> saindo ${fmt(real,1)} ${unid} contra ${fmt(meta,1)} ${unid} desejados (${pct(d)}). `
+           + `É preciso <b>${acao} cerca de ${fmt(ajuste*100,0)}%</b> a vazão e coletar de novo.`;
+  return {html:`<div class="alerta ${cls}">${txt}</div>`, d};
+}
+
+/* ===== CÁLCULOS ===== */
+const calculos = {
+  sementes(){
+    const pop=num('s_pop'), esp=espCm(num('s_esp')), germ=num('s_germ'), dist=num('s_dist');
+    const perda = isNaN(num('s_perda')) ? 0 : num('s_perda');
+    const pms=num('s_pms'), cont=num('s_cont');
+    if (!(pop>0 && esp>0 && germ>0 && germ<=100 && dist>0) || perda<0 || perda>=100)
+      return {erro:'Preencha população, espaçamento, germinação (até 100%) e distância.'};
+    const e=esp/100, plM = pop*e/10000;
+    const semM = plM / ((germ/100)*(1-perda/100));
+    const semHa = semM*10000/e;
+    let h = `<div class="destaque"><div class="v">${fmt(semM,1)}</div><div class="l">sementes por metro</div></div>`;
+    h += linha('Sementes em '+fmt(dist)+' m', fmt(semM*dist,0));
+    h += linha('Distância entre sementes', fmt(100/semM,1)+' cm');
+    h += linha('Plantas por metro (alvo)', fmt(plM,1));
+    h += linha('Sementes por hectare', fmt(semHa,0));
+    let t = `Regulagem de sementes\nPopulação: ${fmt(pop,0)} pl/ha | Espaç.: ${fmt(esp)} cm | Germ.: ${fmt(germ)}%${perda?` | Perdas: ${fmt(perda)}%`:''}\n→ ${fmt(semM,1)} sementes/m (${fmt(semM*dist,0)} em ${fmt(dist)} m)`;
+    if (pms>0){ const kg=semHa*pms/1e6; h += linha('Semente necessária', fmt(kg,1)+' kg/ha'); t+=`\n→ ${fmt(kg,1)} kg de semente/ha`; }
+    if (cont>0){
+      const real = cont/dist, v = veredito(real, semM, 'sem/m');
+      const estande = real*(germ/100)*(1-perda/100)*10000/e;
+      h += '<div class="secao"><h3>Conferência</h3>'+linha('Sementes/m saindo', fmt(real,1))+linha('Estande estimado', fmt(estande,0)+' pl/ha')+'</div>'+v.html;
+      t += `\nConferência: ${fmt(real,1)} sem/m (${pct(v.d)}) → estande est. ${fmt(estande,0)} pl/ha`;
+    }
+    h += `<p class="nota">Use a germinação do rótulo ou da análise do lote. “Perdas no campo” cobre falhas de emergência (pragas, profundidade, umidade).</p>`;
+    return {html:h, texto:t};
+  },
+
+  linha(){
+    const dose=num('l_dose'), esp=espCm(num('l_esp')), dist=num('l_dist'), lin=num('l_lin'), col=num('l_col');
+    if (!(dose>0 && esp>0 && dist>0 && lin>=1)) return {erro:'Preencha dose, espaçamento, distância e nº de linhas.'};
+    const e=esp/100, gM = dose*e/10;
+    const gColeta = gM*dist*lin;
+    let h = `<div class="destaque"><div class="v">${fmt(gM,1)} g</div><div class="l">de adubo por metro de linha</div></div>`;
+    h += linha(`Esperado em ${fmt(dist)} m × ${fmt(lin,0)} linha${lin>1?'s':''}`, fmt(gColeta,0)+' g');
+    if (lin>1) h += linha('Esperado por linha', fmt(gM*dist,0)+' g');
+    let t = `Regulagem adubo na linha\nDose: ${fmt(dose)} kg/ha | Espaç.: ${fmt(esp)} cm\n→ ${fmt(gM,1)} g/m | ${fmt(gColeta,0)} g em ${fmt(dist)} m × ${fmt(lin,0)} linha(s)`;
+    if (col>0){
+      const real = col*10/(dist*lin*e), v = veredito(real, dose, 'kg/ha');
+      h += '<div class="secao"><h3>Conferência</h3>'+linha('Dose real aplicada', fmt(real,0)+' kg/ha')+'</div>'+v.html;
+      t += `\nConferência: ${fmt(real,0)} kg/ha (${pct(v.d)})`;
+    }
+    h += `<p class="nota">Colete com a máquina em movimento, em velocidade de trabalho. Se coletar várias linhas, compare também o peso de cada uma: diferença grande entre linhas indica dosador desgastado ou entupido.</p>`;
+    return {html:h, texto:t};
+  },
+
+  lanco(){
+    const dose=num('z_dose'), larg=num('z_larg'), col=num('z_col');
+    if (!(dose>0 && larg>0)) return {erro:'Preencha dose e largura de faixa.'};
+    let h, t = `Regulagem adubo a lanço\nDose: ${fmt(dose)} kg/ha | Faixa: ${fmt(larg)} m`, meta, real;
+    if (metodoLanco==='dist'){
+      const dist=num('z_dist');
+      if (!(dist>0)) return {erro:'Preencha a distância percorrida.'};
+      meta = dose*larg*dist/10000;
+      h = `<div class="destaque"><div class="v">${fmt(meta,2)} kg</div><div class="l">esperados em ${fmt(dist)} m</div></div>`;
+      h += linha('Área coberta na coleta', fmt(larg*dist,0)+' m²');
+      t += `\n→ ${fmt(meta,2)} kg em ${fmt(dist)} m`;
+      if (col>0) real = col*10000/(larg*dist);
+    } else {
+      const vel=num('z_vel'), tempo=num('z_tempo');
+      if (!(vel>0 && tempo>0)) return {erro:'Preencha velocidade e tempo de coleta.'};
+      const m2s = larg*vel/3.6, kgMin = dose*m2s*60/10000;
+      meta = kgMin*tempo/60;
+      h = `<div class="destaque"><div class="v">${fmt(kgMin,1)} kg/min</div><div class="l">vazão necessária a ${fmt(vel)} km/h</div></div>`;
+      h += linha(`Esperado em ${fmt(tempo,0)} s`, fmt(meta,2)+' kg');
+      h += linha('Rendimento', fmt(m2s*3600/10000,1)+' ha/h');
+      t += ` | Vel.: ${fmt(vel)} km/h\n→ ${fmt(kgMin,1)} kg/min | ${fmt(meta,2)} kg em ${fmt(tempo,0)} s`;
+      if (col>0) real = (col/tempo)*10000/m2s;
+    }
+    if (real){
+      const v = veredito(real, dose, 'kg/ha');
+      h += '<div class="secao"><h3>Conferência</h3>'+linha('Dose real aplicada', fmt(real,0)+' kg/ha')+'</div>'+v.html;
+      t += `\nConferência: ${fmt(real,0)} kg/ha (${pct(v.d)})`;
+    }
+    h += `<p class="nota">Essa coleta confere a <b>quantidade</b>. A <b>uniformidade</b> da faixa (sobreposição) depende de teste com bandejas — a largura de faixa aqui é a efetiva, entre passadas.</p>`;
+    return {html:h, texto:t};
+  }
+};
+
+/* ===== FLUXO DE CÁLCULO + LIMITE ===== */
+async function calcular(tipo, btn){
+  $('e-'+tipo).textContent = '';
+  const r = calculos[tipo]();
+  if (r.erro){ $('e-'+tipo).textContent = r.erro; $('r-'+tipo).classList.remove('show'); return; }
+  btn.disabled = true;
+  const {data, error} = await sb.rpc('regula_registrar_calculo');
+  btn.disabled = false;
+  if (error){ $('e-'+tipo).textContent = 'Erro de conexão. Tente de novo.'; return; }
+  status = data; mostraContador();
+  if (!data.permitido){ $('paywall').classList.remove('oculto'); return; }
+  ultimoTexto[tipo] = r.texto;
+  $('r-'+tipo).innerHTML = r.html + `<button class="btn btn-sec" onclick="compartilhar('${tipo}')">Enviar no WhatsApp</button>`;
+  $('r-'+tipo).classList.add('show');
+  $('r-'+tipo).scrollIntoView({behavior:'smooth', block:'start'});
+}
+function compartilhar(tipo){
+  const txt = ultimoTexto[tipo] + '\n\n— calculado no RegulaCalc';
+  window.open('https://wa.me/?text='+encodeURIComponent(txt), '_blank');
+}
+function mostraContador(){
+  if (!status) return;
+  $('contador').textContent = status.pago ? 'Acesso liberado'
+    : `${Math.max(status.limite - status.usados,0)} de ${status.limite} cálculos grátis`;
+}
+
+/* ===== AUTH ===== */
+async function entrar(){
+  const email=$('email').value.trim(), senha=$('senha').value;
+  $('erroLogin').textContent='';
+  if (!email || senha.length<6){ $('erroLogin').textContent='Informe e-mail e senha (mín. 6 caracteres).'; return; }
+  $('btnLogin').disabled = true;
+  const res = modoCadastro
+    ? await sb.auth.signUp({email, password:senha})
+    : await sb.auth.signInWithPassword({email, password:senha});
+  $('btnLogin').disabled = false;
+  if (res.error){
+    const m = res.error.message || '';
+    $('erroLogin').textContent = /already|registered/i.test(m) ? 'Esse e-mail já tem conta. Use “Entrar”.'
+      : /invalid/i.test(m) ? 'E-mail ou senha incorretos.' : 'Erro: '+m;
+    return;
+  }
+  if (modoCadastro && !res.data.session){ $('erroLogin').textContent='Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre.'; return; }
+}
+async function abrirApp(session){
+  $('telaLogin').classList.add('oculto'); $('telaApp').classList.remove('oculto');
+  $('usuario').textContent = session.user.email;
+  const {data} = await sb.rpc('regula_status');
+  if (data){ status = data; mostraContador(); }
+}
+function fecharApp(){
+  $('telaApp').classList.add('oculto'); $('telaLogin').classList.remove('oculto'); status=null;
+}
+
+/* ===== EVENTOS ===== */
+$('btnLogin').onclick = entrar;
+$('senha').addEventListener('keydown', e => { if (e.key==='Enter') entrar(); });
+$('trocaModo').onclick = () => {
+  modoCadastro = !modoCadastro;
+  $('tituloLogin').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  $('subLogin').textContent = modoCadastro ? 'Grátis. Você ganha 3 cálculos para testar.' : 'Acesse sua conta para calcular.';
+  $('btnLogin').textContent = modoCadastro ? 'Criar conta' : 'Entrar';
+  $('trocaModo').textContent = modoCadastro ? 'Já tenho conta. Entrar' : 'Não tem conta? Criar conta grátis';
+  $('senha').autocomplete = modoCadastro ? 'new-password' : 'current-password';
+  $('erroLogin').textContent='';
+};
+$('btnSair').onclick = () => sb.auth.signOut();
+document.querySelectorAll('#impl button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#impl button').forEach(x => x.classList.toggle('ativo', x===b));
+  document.querySelectorAll('.calc').forEach(c => c.classList.toggle('oculto', c.id!=='c-'+b.dataset.t));
+});
+document.querySelectorAll('#metodo button').forEach(b => b.onclick = () => {
+  metodoLanco = b.dataset.m;
+  document.querySelectorAll('#metodo button').forEach(x => x.classList.toggle('ativo', x===b));
+  document.querySelectorAll('.m-dist').forEach(el => el.classList.toggle('oculto', metodoLanco!=='dist'));
+  document.querySelectorAll('.m-tempo').forEach(el => el.classList.toggle('oculto', metodoLanco!=='tempo'));
+  $('r-lanco').classList.remove('show');
+});
+document.querySelectorAll('[data-calc]').forEach(b => b.onclick = () => calcular(b.dataset.calc, b));
+$('fecharPaywall').onclick = () => $('paywall').classList.add('oculto');
+if (LINK_PAGAMENTO) $('btnPagar').onclick = () => window.open(LINK_PAGAMENTO,'_blank');
+else $('btnPagar').classList.add('oculto');
+$('btnPaguei').onclick = () => {
+  const email = $('usuario').textContent;
+  const msg = LINK_PAGAMENTO ? `Olá! Paguei o RegulaCalc. Meu e-mail de cadastro: ${email}`
+                             : `Olá! Quero liberar o acesso ao RegulaCalc. Meu e-mail de cadastro: ${email}`;
+  window.open(`https://wa.me/${WHATSAPP}?text=`+encodeURIComponent(msg), '_blank');
+};
+if (!LINK_PAGAMENTO) $('btnPaguei').textContent = 'Liberar pelo WhatsApp';
+
+// setTimeout evita chamar o Supabase de dentro do callback de auth (pode travar)
+sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => session ? abrirApp(session) : fecharApp(), 0); });
+</script>
+</body>
+</html>
