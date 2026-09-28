@@ -82,6 +82,20 @@
   .send-btn:hover:not(:disabled){background:var(--green-deep);}
   .error{font-size:13px;color:var(--danger);margin-top:8px;}
   .confirm{font-size:13.5px;color:var(--green-deep);background:var(--green-tint);border-radius:7px;padding:8px 12px;margin-top:10px;line-height:1.4;}
+  .match-check{font-size:13.5px;color:var(--ink);background:#FFF7E0;border:1px solid #E9D48A;border-radius:7px;padding:12px;margin-top:10px;line-height:1.45;}
+  .match-check .match-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .match-check button{font-family:inherit;font-size:13px;font-weight:500;border-radius:6px;padding:8px 12px;cursor:pointer;border:1px solid var(--line-strong);background:#fff;}
+  .match-check button.primary{background:var(--green);color:#fff;border-color:var(--green);}
+  .match-check button.primary:hover{background:var(--green-deep);}
+  .match-check button:not(.primary):hover{background:var(--bg);}
+
+  .dup-grupo{border:1px solid var(--line-strong);border-radius:8px;padding:12px 14px;margin-bottom:12px;background:#fff;}
+  .dup-grupo-header{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;margin-bottom:10px;}
+  .dup-membro{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px dashed var(--line-strong);font-size:13.5px;}
+  .dup-membro:first-of-type{border-top:none;}
+  .dup-membro .dup-info{flex:1;}
+  .dup-membro .dup-nome{font-weight:500;}
+  .dup-membro .dup-meta{font-size:12px;color:var(--ink-soft);margin-top:2px;}
 
   .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
   .search{flex:1;min-width:180px;font-family:inherit;font-size:13.5px;border:1px solid var(--line-strong);border-radius:7px;padding:8px 10px;background:var(--paper);}
@@ -211,6 +225,7 @@
     </div>
     <div class="error" id="errorMsg" style="display:none;"></div>
     <div class="confirm" id="confirmMsg" style="display:none;"></div>
+    <div class="match-check" id="matchCheck" style="display:none;"></div>
   </div>
 
   <div class="tabs">
@@ -241,7 +256,20 @@
       </select>
       <button class="send-btn" id="novoClienteBtn">+ Novo cliente</button>
       <button class="export-btn" id="exportBtn">Exportar CSV</button>
+      <button class="export-btn" id="unificarDuplicadosBtn">🔗 Unificar duplicados</button>
       <button class="logout-btn" id="logoutBtn">Sair</button>
+    </div>
+
+    <div class="composer" id="duplicadosPanel" style="display:none;">
+      <label style="margin-bottom:2px;">Possíveis clientes duplicados</label>
+      <p class="sub-help" id="duplicadosResumo" style="font-size:13px;color:var(--ink-soft);margin:0 0 14px;">Comparando nomes parecidos na carteira…</p>
+      <div id="duplicadosLista"></div>
+      <div class="composer-row" style="justify-content:flex-start;gap:10px;margin-top:6px;">
+        <button class="send-btn" id="confirmarUnificacaoBtn">Unificar selecionados</button>
+        <button class="export-btn" id="fecharDuplicadosBtn">Fechar</button>
+      </div>
+      <div class="error" id="duplicadosError" style="display:none;"></div>
+      <div class="confirm" id="duplicadosConfirm" style="display:none;"></div>
     </div>
 
     <div class="composer" id="clienteFormPanel" style="display:none;">
@@ -533,11 +561,237 @@ async function loadRecords(){
   render();
 }
 
+// ---- Correspondência de nome de cliente (evita duplicar cliente por causa de acento, maiúscula, apelido, etc.) ----
+function normalizarNome(s){
+  return (s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/\b(sr|sra|dr|dra|fazenda|sitio|fzda|fz)\b\.?/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function levenshtein(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  const dp = new Array(n + 1);
+  for(let j = 0; j <= n; j++) dp[j] = j;
+  for(let i = 1; i <= m; i++){
+    let prev = dp[0];
+    dp[0] = i;
+    for(let j = 1; j <= n; j++){
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+function similaridadeNomes(a, b){
+  const na = normalizarNome(a), nb = normalizarNome(b);
+  if(!na || !nb) return 0;
+  if(na === nb) return 1;
+  // um nome contido no outro (ex: "João" dentro de "João da Fazenda Santa Rita") ganha bônus
+  if(na.includes(nb) || nb.includes(na)){
+    const maior = Math.max(na.length, nb.length), menor = Math.min(na.length, nb.length);
+    return 0.75 + 0.2 * (menor / maior);
+  }
+  const dist = levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return 1 - dist / maxLen;
+}
+
+const LIMIAR_PARECIDO = 0.72;
+
+function encontrarClienteParecido(nome){
+  let melhor = null, melhorScore = 0;
+  for(const r of records){
+    const score = similaridadeNomes(nome, r.cliente);
+    if(score > melhorScore){ melhorScore = score; melhor = r; }
+  }
+  return melhorScore >= LIMIAR_PARECIDO ? { registro: melhor, score: melhorScore } : null;
+}
+
+let pendingRegistro = null;
+
+// ---- Unificar clientes duplicados (limpeza dos que já duplicaram antes dessa melhoria) ----
+function encontrarGruposDuplicados(){
+  const n = records.length;
+  const pai = Array.from({length: n}, (_, i) => i);
+  function find(x){ while(pai[x] !== x){ pai[x] = pai[pai[x]]; x = pai[x]; } return x; }
+  function unir(a, b){ const ra = find(a), rb = find(b); if(ra !== rb) pai[ra] = rb; }
+
+  for(let i = 0; i < n; i++){
+    for(let j = i + 1; j < n; j++){
+      if(similaridadeNomes(records[i].cliente, records[j].cliente) >= LIMIAR_PARECIDO){
+        unir(i, j);
+      }
+    }
+  }
+
+  const gruposMap = {};
+  for(let i = 0; i < n; i++){
+    const raiz = find(i);
+    (gruposMap[raiz] = gruposMap[raiz] || []).push(records[i]);
+  }
+  return Object.values(gruposMap).filter(g => g.length > 1);
+}
+
+function parseDataHistorico(str){
+  // formato salvo: "dd/mm/aaaa hh:mm"
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/.exec(str || '');
+  if(!m) return null;
+  return new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+}
+
+let gruposDuplicadosAtuais = [];
+
+function abrirPainelDuplicados(){
+  gruposDuplicadosAtuais = encontrarGruposDuplicados();
+  const lista = document.getElementById('duplicadosLista');
+  const resumo = document.getElementById('duplicadosResumo');
+  document.getElementById('duplicadosError').style.display = 'none';
+  document.getElementById('duplicadosConfirm').style.display = 'none';
+
+  if(gruposDuplicadosAtuais.length === 0){
+    resumo.textContent = 'Não encontrei clientes com nomes parecidos na carteira atual.';
+    lista.innerHTML = '';
+  }else{
+    resumo.textContent = 'Encontrei ' + gruposDuplicadosAtuais.length + ' grupo(s) de possíveis duplicados. Escolha qual cadastro manter em cada grupo — o histórico e as propostas dos outros são somados a ele, e os demais são removidos.';
+    lista.innerHTML = gruposDuplicadosAtuais.map((grupo, gi) => renderGrupoDuplicado(grupo, gi)).join('');
+  }
+  document.getElementById('duplicadosPanel').style.display = 'block';
+  document.getElementById('duplicadosPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function fecharPainelDuplicados(){
+  document.getElementById('duplicadosPanel').style.display = 'none';
+  gruposDuplicadosAtuais = [];
+}
+
+function renderGrupoDuplicado(grupo, gi){
+  // sugere como principal quem tem mais histórico (mais informação registrada)
+  let idxSugerido = 0, maxHist = -1;
+  grupo.forEach((r, i) => {
+    const h = (r.historico || []).length;
+    if(h > maxHist){ maxHist = h; idxSugerido = i; }
+  });
+
+  const membros = grupo.map((r, i) => {
+    const hist = (r.historico || []).length;
+    const prop = (r.propostas || []).length;
+    return '<label class="dup-membro">' +
+      '<input type="radio" name="dupPrincipal_' + gi + '" value="' + i + '"' + (i === idxSugerido ? ' checked' : '') + '>' +
+      '<span class="dup-info"><span class="dup-nome">' + escapeHtml(r.cliente) + '</span>' +
+      '<div class="dup-meta">' + hist + ' registro(s) de histórico · ' + prop + ' proposta(s)' + (r.status ? ' · ' + escapeHtml(r.status) : '') + '</div></span>' +
+    '</label>';
+  }).join('');
+
+  return '<div class="dup-grupo" data-grupo="' + gi + '">' +
+    '<div class="dup-grupo-header"><input type="checkbox" class="dup-incluir" data-grupo="' + gi + '" checked> Unificar este grupo</div>' +
+    membros +
+  '</div>';
+}
+
+async function confirmarUnificacao(){
+  const errEl = document.getElementById('duplicadosError');
+  const confEl = document.getElementById('duplicadosConfirm');
+  errEl.style.display = 'none';
+  confEl.style.display = 'none';
+
+  const gruposParaUnificar = [];
+  document.querySelectorAll('.dup-incluir:checked').forEach(chk => {
+    const gi = +chk.dataset.grupo;
+    const grupo = gruposDuplicadosAtuais[gi];
+    if(!grupo) return;
+    const radioMarcado = document.querySelector('input[name="dupPrincipal_' + gi + '"]:checked');
+    const idxPrincipal = radioMarcado ? +radioMarcado.value : 0;
+    gruposParaUnificar.push({ grupo, idxPrincipal });
+  });
+
+  if(gruposParaUnificar.length === 0){
+    errEl.textContent = 'Marque pelo menos um grupo para unificar.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('confirmarUnificacaoBtn');
+  btn.disabled = true;
+  btn.textContent = 'Unificando…';
+
+  try{
+    let totalUnificados = 0;
+    for(const { grupo, idxPrincipal } of gruposParaUnificar){
+      const principal = grupo[idxPrincipal];
+      const outros = grupo.filter((_, i) => i !== idxPrincipal);
+
+      let historicoFinal = [...(principal.historico || [])];
+      let propostasFinal = [...(principal.propostas || [])];
+      const camposFinal = {};
+
+      for(const outro of outros){
+        historicoFinal = historicoFinal.concat(outro.historico || []);
+        propostasFinal = propostasFinal.concat(outro.propostas || []);
+      }
+      historicoFinal.sort((a, b) => {
+        const da = parseDataHistorico(a.data), db = parseDataHistorico(b.data);
+        if(da && db) return db - da;
+        return 0;
+      });
+
+      // preenche campos vazios do principal com o valor do primeiro duplicado que tiver
+      for(const key of Object.keys(fieldLabels())){
+        if(!principal[key]){
+          const comValor = outros.find(o => o[key]);
+          if(comValor) camposFinal[key] = comValor[key];
+        }
+      }
+
+      const { error: updError } = await supabaseClient.from('clientes')
+        .update({ ...camposFinal, historico: historicoFinal, propostas: propostasFinal, updated_at: new Date().toISOString() })
+        .eq('id', principal.id);
+      if(updError) throw updError;
+
+      for(const outro of outros){
+        const { error: delError } = await supabaseClient.from('clientes').delete().eq('id', outro.id);
+        if(delError) throw delError;
+      }
+      totalUnificados += outros.length;
+    }
+
+    await loadRecords();
+    confEl.textContent = totalUnificados + ' cadastro(s) duplicado(s) foram unificado(s) com sucesso.';
+    confEl.style.display = 'block';
+    // recalcula os grupos restantes (caso ainda sobre algum não marcado)
+    gruposDuplicadosAtuais = encontrarGruposDuplicados();
+    const lista = document.getElementById('duplicadosLista');
+    const resumo = document.getElementById('duplicadosResumo');
+    if(gruposDuplicadosAtuais.length === 0){
+      resumo.textContent = 'Não encontrei mais clientes parecidos na carteira.';
+      lista.innerHTML = '';
+    }else{
+      resumo.textContent = 'Ainda restam ' + gruposDuplicadosAtuais.length + ' grupo(s) de possíveis duplicados.';
+      lista.innerHTML = gruposDuplicadosAtuais.map((grupo, gi) => renderGrupoDuplicado(grupo, gi)).join('');
+    }
+  }catch(e){
+    errEl.textContent = 'Não consegui unificar: ' + (e.message || e);
+    errEl.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Unificar selecionados';
+  }
+}
+
 async function registrar(){
   const textarea = document.getElementById('entrada');
   const texto = textarea.value.trim();
   clearError();
   document.getElementById('confirmMsg').style.display = 'none';
+  document.getElementById('matchCheck').style.display = 'none';
+  pendingRegistro = null;
   if(!texto){
     showError('Escreva ou fale algo antes de registrar.');
     return;
@@ -559,7 +813,6 @@ async function registrar(){
 
     const agora = new Date();
     const dataStr = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-    const existing = records.find(r => r.cliente.trim().toLowerCase() === parsed.cliente.trim().toLowerCase());
 
     const camposMap = {};
     const campos = parsed.campos || {};
@@ -578,33 +831,92 @@ async function registrar(){
       };
     }
 
-    if(existing){
-      const novoHistorico = [{data: dataStr, texto}, ...(existing.historico || [])];
-      const novasPropostas = novaProposta ? [novaProposta, ...(existing.propostas || [])] : (existing.propostas || []);
-      const { error: updError } = await supabaseClient.from('clientes')
-        .update({ ...camposMap, historico: novoHistorico, propostas: novasPropostas, updated_at: new Date().toISOString() })
-        .eq('id', existing.id);
-      if(updError) throw updError;
-    }else{
-      const { error: insError } = await supabaseClient.from('clientes').insert({
-        cliente: parsed.cliente,
-        status: camposMap.status || 'Não contatado',
-        ...camposMap,
-        historico: [{data: dataStr, texto}],
-        propostas: novaProposta ? [novaProposta] : []
-      });
-      if(insError) throw insError;
+    const dadosPendentes = { texto, dataStr, camposMap, novaProposta, nomeDigitado: parsed.cliente, resumo: parsed.resumo };
+
+    // 1) match exato, ignorando acento/maiúscula/espaçamento/"Sr./Fazenda"
+    const nomeNorm = normalizarNome(parsed.cliente);
+    const existingExato = records.find(r => normalizarNome(r.cliente) === nomeNorm);
+    if(existingExato){
+      await concluirRegistro(existingExato, dadosPendentes);
+      return;
     }
 
-    textarea.value = '';
-    showConfirm(parsed.resumo || ('Registrado para ' + parsed.cliente + '.'));
-    await loadRecords();
+    // 2) nome parecido, mas não idêntico — confirma com o usuário em vez de criar direto
+    const parecido = encontrarClienteParecido(parsed.cliente);
+    if(parecido){
+      pendingRegistro = dadosPendentes;
+      mostrarConfirmacaoMatch(parecido.registro, parsed.cliente);
+      return;
+    }
+
+    // 3) nenhum parecido encontrado — cliente realmente novo
+    await concluirRegistro(null, dadosPendentes);
   }catch(e){
     showError('Não consegui processar essa entrada agora: ' + (e.message || e));
   }finally{
     sendBtn.disabled = false;
     sendBtn.textContent = 'Registrar';
   }
+}
+
+async function concluirRegistro(existing, dados){
+  const { texto, dataStr, camposMap, novaProposta, nomeDigitado, resumo } = dados;
+  if(existing){
+    const novoHistorico = [{data: dataStr, texto}, ...(existing.historico || [])];
+    const novasPropostas = novaProposta ? [novaProposta, ...(existing.propostas || [])] : (existing.propostas || []);
+    const { error: updError } = await supabaseClient.from('clientes')
+      .update({ ...camposMap, historico: novoHistorico, propostas: novasPropostas, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if(updError) throw updError;
+  }else{
+    const { error: insError } = await supabaseClient.from('clientes').insert({
+      cliente: nomeDigitado,
+      status: camposMap.status || 'Não contatado',
+      ...camposMap,
+      historico: [{data: dataStr, texto}],
+      propostas: novaProposta ? [novaProposta] : []
+    });
+    if(insError) throw insError;
+  }
+  document.getElementById('entrada').value = '';
+  showConfirm(resumo || ('Registrado para ' + (existing ? existing.cliente : nomeDigitado) + '.'));
+  await loadRecords();
+}
+
+function mostrarConfirmacaoMatch(registroParecido, nomeDigitado){
+  const el = document.getElementById('matchCheck');
+  el.innerHTML =
+    'Você mencionou "<b>' + escapeHtml(nomeDigitado) + '</b>", e já existe um cliente parecido na carteira: "<b>' + escapeHtml(registroParecido.cliente) + '</b>". É o mesmo cliente?' +
+    '<div class="match-row">' +
+      '<button class="primary" id="matchUsarExistente">Sim, é o mesmo — atualizar</button>' +
+      '<button id="matchCriarNovo">Não, é outro cliente</button>' +
+      '<button id="matchCancelar">Cancelar</button>' +
+    '</div>';
+  el.style.display = 'block';
+  document.getElementById('matchUsarExistente').onclick = async () => {
+    el.style.display = 'none';
+    const dados = pendingRegistro; pendingRegistro = null;
+    if(!dados) return;
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true; sendBtn.textContent = 'Registrando…';
+    try{ await concluirRegistro(registroParecido, dados); }
+    catch(e){ showError('Não consegui processar essa entrada agora: ' + (e.message || e)); }
+    finally{ sendBtn.disabled = false; sendBtn.textContent = 'Registrar'; }
+  };
+  document.getElementById('matchCriarNovo').onclick = async () => {
+    el.style.display = 'none';
+    const dados = pendingRegistro; pendingRegistro = null;
+    if(!dados) return;
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true; sendBtn.textContent = 'Registrando…';
+    try{ await concluirRegistro(null, dados); }
+    catch(e){ showError('Não consegui processar essa entrada agora: ' + (e.message || e)); }
+    finally{ sendBtn.disabled = false; sendBtn.textContent = 'Registrar'; }
+  };
+  document.getElementById('matchCancelar').onclick = () => {
+    el.style.display = 'none';
+    pendingRegistro = null;
+  };
 }
 
 async function excluirCliente(id, ev){
@@ -669,6 +981,9 @@ function abrirNovoCliente(){
   document.getElementById('clienteFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 document.getElementById('novoClienteBtn').addEventListener('click', abrirNovoCliente);
+document.getElementById('unificarDuplicadosBtn').addEventListener('click', abrirPainelDuplicados);
+document.getElementById('fecharDuplicadosBtn').addEventListener('click', fecharPainelDuplicados);
+document.getElementById('confirmarUnificacaoBtn').addEventListener('click', confirmarUnificacao);
 
 function abrirEditarCliente(r){
   editingClienteId = r.id;
