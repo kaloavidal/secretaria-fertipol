@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RegulaCalc — Regulagem de Implementos</title>
+<meta name="apple-mobile-web-app-title" content="RegulaCalc">
+<meta name="theme-color" content="#1f4a27">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="regulacalc-manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="regulacalc-icon-192.png">
+<link rel="apple-touch-icon" href="regulacalc-icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -389,6 +397,15 @@ if (!LINK_PAGAMENTO) $('btnPaguei').textContent = 'Liberar pelo WhatsApp';
 
 // setTimeout evita chamar o Supabase de dentro do callback de auth (pode travar)
 sb.auth.onAuthStateChange((_ev, session) => { setTimeout(() => session ? abrirApp(session) : fecharApp(), 0); });
+
+// Registra o service worker (permite o app abrir mesmo sem internet, depois da 1ª visita online)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('regulacalc-sw.js').catch((err) => {
+      console.warn('Não consegui registrar o service worker:', err);
+    });
+  });
+}
 </script>
 </body>
 </html>

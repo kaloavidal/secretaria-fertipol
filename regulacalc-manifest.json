@@ -1,0 +1,25 @@
+{
+  "name": "RegulaCalc",
+  "short_name": "RegulaCalc",
+  "description": "Regulagem de semeadoras e adubadoras, direto no campo",
+  "start_url": "./regulacalc.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ee",
+  "theme_color": "#1f4a27",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "regulacalc-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "regulacalc-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
