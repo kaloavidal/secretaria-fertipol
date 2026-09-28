@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ZapClientes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--verde:#1f7a4d;--verde-esc:#155c39;--bg:#f3f5f2;--card:#fff;--txt:#1c2a22;--mut:#6b7a70;--borda:#dfe5df;--erro:#b3261e;--aviso:#a15c00}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);padding-bottom:90px}
+  header{background:var(--verde);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center}
+  header h1{font-size:18px;margin:0}
+  header button{background:transparent;border:1px solid #ffffff88;color:#fff;border-radius:8px;padding:6px 10px;font-size:13px}
+  main{max-width:720px;margin:0 auto;padding:14px}
+  .card{background:var(--card);border:1px solid var(--borda);border-radius:12px;padding:14px;margin-bottom:14px}
+  h2{font-size:16px;margin:0 0 8px}
+  p.mut,.mut{color:var(--mut);font-size:13px}
+  input[type=text],input[type=email],input[type=password],input[type=search],textarea{width:100%;padding:11px;border:1px solid var(--borda);border-radius:10px;font-size:16px;font-family:inherit;background:#fff}
+  textarea{min-height:120px;resize:vertical}
+  button.pri{background:var(--verde);color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:600;width:100%}
+  button.pri:disabled{opacity:.5}
+  button.sec{background:#fff;color:var(--verde-esc);border:1px solid var(--verde);border-radius:10px;padding:9px 12px;font-size:14px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .row>*{flex:1 1 auto}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tabs button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--borda);background:#fff;font-size:15px;font-weight:600;color:var(--mut)}
+  .tabs button.on{background:var(--verde);color:#fff;border-color:var(--verde)}
+  .item{display:flex;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--borda)}
+  .item:last-child{border-bottom:0}
+  .item input[type=checkbox]{width:22px;height:22px;flex:none}
+  .item .info{flex:1;min-width:0}
+  .item .nome{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .fone{font-size:13px;color:var(--mut)}
+  .badge{font-size:11px;border-radius:6px;padding:2px 6px;background:#eef1ee;color:var(--mut);margin-left:6px;font-weight:600}
+  .badge.erro{background:#fde8e6;color:var(--erro)}
+  .badge.aviso{background:#fff1dc;color:var(--aviso)}
+  .badge.ok{background:#e3f4ea;color:var(--verde-esc)}
+  .chip{font-size:13px;border-radius:20px;padding:6px 12px;background:#fff;border:1px solid var(--borda);color:var(--mut);font-weight:600}
+  .chip.on{background:var(--verde-esc);color:#fff;border-color:var(--verde-esc)}
+  .prev{font-size:13px;color:var(--mut);white-space:pre-wrap;background:#f6f8f6;border-radius:8px;padding:8px;margin-top:6px}
+  .item .btns{display:flex;gap:6px;flex:none}
+  .item .btns button{white-space:nowrap}
+  .btn-wpp{background:#1f7a4d;color:#fff;border:0;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:600}
+  .btn-pular{background:#fff;color:var(--mut);border:1px solid var(--borda);border-radius:8px;padding:8px 10px;font-size:13px}
+  .item.enviado{opacity:.55}
+  .item.pulado{opacity:.55}
+  .barra{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--borda);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:none;gap:10px;align-items:center;z-index:10}
+  .barra .cnt{font-size:14px;font-weight:600;flex:none}
+  .barra button{flex:1}
+  .msg{padding:10px 12px;border-radius:10px;font-size:14px;margin:8px 0}
+  .msg.err{background:#fde8e6;color:var(--erro)}
+  .msg.ok{background:#e3f4ea;color:var(--verde-esc)}
+  details summary{font-weight:600;cursor:pointer}
+  details ol{padding-left:20px;margin:8px 0;font-size:14px}
+  details li{margin-bottom:6px}
+  .hide{display:none!important}
+  .center{text-align:center;padding:40px 20px}
+  code{background:#eef1ee;padding:1px 5px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ZapClientes</h1>
+  <button id="btnSair" class="hide">Sair</button>
+</header>
+
+<main>
+
+  <!-- LOGIN -->
+  <section id="telaLogin" class="card">
+    <h2>Entrar</h2>
+    <p class="mut">Acesso restrito.</p>
+    <div class="row"><input type="email" id="lgEmail" placeholder="E-mail" autocomplete="username"></div>
+    <div class="row"><input type="password" id="lgSenha" placeholder="Senha" autocomplete="current-password"></div>
+    <div id="lgMsg"></div>
+    <button class="pri" id="btnEntrar">Entrar</button>
+  </section>
+
+  <!-- SEM ACESSO -->
+  <section id="telaSemAcesso" class="card center hide">
+    <h2>Sem acesso</h2>
+    <p class="mut">Esta ferramenta é de uso restrito.</p>
+    <button class="sec" id="btnSair2">Sair</button>
+  </section>
+
+  <!-- APP -->
+  <div id="telaApp" class="hide">
+    <div class="tabs">
+      <button id="tabImportar" class="on">Importar</button>
+      <button id="tabClientes">Clientes <span id="qtdClientes"></span></button>
+      <button id="tabEnviar">Enviar</button>
+    </div>
+
+    <!-- ABA IMPORTAR -->
+    <div id="abaImportar">
+
+      <div id="passoEntrada">
+        <div class="card">
+          <h2>1. Traga a agenda inteira</h2>
+          <p class="mut">Depois você marca só os clientes. Nada é salvo antes de você confirmar.</p>
+
+          <h2 style="margin-top:14px">No iPhone: exportar do iCloud</h2>
+          <ol style="padding-left:20px;font-size:14px;margin:8px 0">
+            <li>No celular ou computador, abra <b>icloud.com/contacts</b> e entre com seu Apple ID.</li>
+            <li>Selecione todos os contatos (⌘A no computador, ou toque em cada um).</li>
+            <li>Clique na engrenagem no canto inferior esquerdo → <b>Exportar vCard</b>.</li>
+            <li>Um arquivo <code>.vcf</code> será baixado. Escolha esse arquivo no botão abaixo.</li>
+          </ol>
+          <input type="file" id="arquivo" accept=".vcf,.csv,.txt,text/vcard,text/csv,text/plain">
+
+          <h2 style="margin-top:14px">Ou colar a lista</h2>
+          <p class="mut">Um contato por linha, por exemplo: <code>João Silva; (67) 99999-1234</code></p>
+          <textarea id="txtColar" placeholder="João Silva; (67) 99999-1234&#10;Maria Souza - 67 98888-7777"></textarea>
+          <div class="row"><button class="pri" id="btnLerTexto">Ler lista colada</button></div>
+
+          <div class="row hide" id="boxAgendaDireta">
+            <button class="sec" id="btnAgenda">Abrir agenda do celular (Android)</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <details>
+            <summary>Alternativa no iPhone: Atalho que copia a agenda como texto</summary>
+            <ol>
+              <li>Abra o app <b>Atalhos</b> e toque em <b>+</b> para criar um atalho novo.</li>
+              <li>Adicione a ação <b>Encontrar Contatos</b> (sem nenhum filtro).</li>
+              <li>Adicione <b>Repetir com Cada Item</b>. Dentro dele, coloque a ação <b>Texto</b> com: o <b>Nome</b> do item, um <code>;</code> e os <b>Números de Telefone</b> do item.</li>
+              <li>Depois do bloco, adicione <b>Copiar para a Área de Transferência</b> com os <b>Resultados da Repetição</b>.</li>
+              <li>Execute o atalho, volte aqui e cole na caixa acima.</li>
+            </ol>
+            <p class="mut">Se tiver dificuldade, me chame que eu te guio passo a passo.</p>
+          </details>
+        </div>
+      </div>
+
+      <div id="passoRevisao" class="hide">
+        <div class="card">
+          <h2>2. Marque os clientes</h2>
+          <p class="mut" id="resumoLeitura"></p>
+          <div class="row"><input type="search" id="busca" placeholder="Buscar por nome ou número"></div>
+          <div class="row">
+            <button class="sec" id="btnMarcarVisiveis">Marcar visíveis</button>
+            <button class="sec" id="btnLimpar">Limpar marcação</button>
+          </div>
+          <div class="row">
+            <input type="text" id="etiquetaImp" placeholder="Etiqueta para estes clientes (opcional). Ex: cliente, soja">
+          </div>
+          <div class="row"><button class="sec" id="btnVoltar">Voltar e trocar a lista</button></div>
+        </div>
+        <div class="card" id="listaRevisao"></div>
+      </div>
+    </div>
+
+    <!-- ABA CLIENTES -->
+    <div id="abaClientes" class="hide">
+      <div class="card">
+        <div class="row"><input type="search" id="buscaClientes" placeholder="Buscar cliente"></div>
+        <div id="msgClientes"></div>
+        <div id="listaClientes"></div>
+      </div>
+    </div>
+
+    <!-- ABA ENVIAR -->
+    <div id="abaEnviar" class="hide">
+      <div class="card">
+        <h2>1. Mensagem</h2>
+        <p class="mut">Use <code>{nome}</code> (nome completo) ou <code>{primeiro_nome}</code> para personalizar.</p>
+        <div class="row"><select id="selModelo"><option value="">Nova mensagem</option></select></div>
+        <div class="row"><input type="text" id="tituloModelo" placeholder="Nome do modelo (ex: Promoção NPK)"></div>
+        <textarea id="textoModelo" placeholder="Oi {primeiro_nome}, tudo bem? Chegou uma condição boa de..."></textarea>
+        <div class="prev" id="previewModelo"></div>
+        <div class="row">
+          <button class="sec" id="btnSalvarModelo">Salvar modelo</button>
+          <button class="sec" id="btnExcluirModelo">Excluir modelo</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2. Escolher clientes</h2>
+        <div class="row"><input type="search" id="buscaEnvio" placeholder="Buscar por nome ou número"></div>
+        <div class="row" id="filtroEtiquetasEnvio"></div>
+        <div class="row">
+          <button class="sec" id="btnMarcarVisiveisEnvio">Marcar visíveis</button>
+          <button class="sec" id="btnLimparEnvio">Limpar marcação</button>
+        </div>
+        <div id="listaEscolhaEnvio"></div>
+        <div class="row"><button class="pri" id="btnMontarFila">Montar fila (<span id="cntEnvioSel">0</span> selecionados)</button></div>
+      </div>
+
+      <div class="card hide" id="cardFila">
+        <h2>3. Fila de envio</h2>
+        <p class="mut">Toque em "Abrir WhatsApp", envie a mensagem por lá e confirme aqui. Espere alguns segundos entre um envio e outro — muitas mensagens seguidas é o que mais chama atenção do WhatsApp.</p>
+        <p class="mut" id="resumoFila"></p>
+        <div id="listaFila"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="barra" id="barraSalvar">
+  <div class="cnt"><span id="cntSel">0</span> marcados</div>
+  <button class="pri" id="btnSalvar">Salvar clientes marcados</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ivvzagskndlwuvlbgisa.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2dnphZ3NrbmRsd3V2bGJnaXNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzODY3MTEsImV4cCI6MjEwNDk2MjcxMX0.WJJiFg8WE66-TILW9_riqgtMr9peaZ8-883RigSxtGY';
+const ADMIN_EMAIL = 'kaloa_vidal@hotmail.com';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = id => document.getElementById(id);
+let usuario = null;
+let salvos = [];          // contatos já salvos
+let itens = [];           // contatos lidos, em revisão
+let seqId = 0;
+
+/* ---------- utilidades ---------- */
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function msg(el, texto, tipo){ el.innerHTML = texto ? `<div class="msg ${tipo}">${esc(texto)}</div>` : ''; }
+
+// Normaliza telefone para o formato do WhatsApp (55 + DDD + número)
+function normalizarFone(bruto){
+  let d = String(bruto).replace(/\D/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.length === 11 && d.startsWith('0')) d = d.slice(1);     // 0 + DDD + 8 dígitos
+  // Discagem antiga com prefixo de interurbano: "0" + DDD + 9 dígitos, ou "0" + código de operadora (2 díg.) + DDD + número
+  const pareceDDD = s => /^[1-9][1-9]$/.test(s);
+  if (d.length === 12 && d.startsWith('0') && pareceDDD(d.slice(1,3))) d = d.slice(1);
+  if ((d.length === 13 || d.length === 14) && d.startsWith('0') && !d.startsWith('00')) {
+    const semOperadora = d.slice(3);
+    if ((semOperadora.length === 10 || semOperadora.length === 11) && pareceDDD(semOperadora.slice(0,2))) d = semOperadora;
+  }
+  // Sem DDD (8 ou 9 dígitos, sem prefixo): presume DDD 67
+  let dddPresumido = false;
+  if ((d.length === 8 || d.length === 9) && !d.startsWith('0')) { d = '67' + d; dddPresumido = true; }
+  if (d.length === 10 || d.length === 11) d = '55' + d;
+  let status = 'ok', aviso = '';
+  if (!(d.startsWith('55') && (d.length === 12 || d.length === 13))) {
+    if (d.length < 10) return { fone: d, status: 'erro', aviso: 'sem DDD ou incompleto' };
+    if (!d.startsWith('55')) return { fone: d, status: 'aviso', aviso: 'número de fora do Brasil' };
+    return { fone: d, status: 'erro', aviso: 'número inválido' };
+  }
+  const corpo = d.slice(4);
+  if (dddPresumido) { status = 'aviso'; aviso = 'DDD 67 presumido'; }
+  else if (corpo.length === 8 && /^[2-5]/.test(corpo)) { status = 'aviso'; aviso = 'parece telefone fixo'; }
+  return { fone: d, status, aviso };
+}
+function formatarFone(f){
+  if (f.startsWith('55') && (f.length === 12 || f.length === 13)) {
+    const ddd = f.slice(2,4), c = f.slice(4);
+    return `(${ddd}) ${c.length === 9 ? c.slice(0,5)+'-'+c.slice(5) : c.slice(0,4)+'-'+c.slice(4)}`;
+  }
+  return '+' + f;
+}
+
+/* ---------- leitores de formato ---------- */
+// vCard (.vcf)
+function lerVCF(texto){
+  const linhas = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\n[ \t]/g,'').split('\n');
+  const out = []; let atual = null;
+  for (const l of linhas) {
+    if (/^BEGIN:VCARD/i.test(l)) atual = { nome:'', org:'', fones:[] };
+    else if (/^END:VCARD/i.test(l)) {
+      if (atual) {
+        const nome = atual.nome || atual.org || '';
+        atual.fones.forEach(f => out.push({ nome, bruto: f }));
+      }
+      atual = null;
+    } else if (atual) {
+      const semGrupo = l.replace(/^[\w-]+\./, '');
+      const idx = semGrupo.indexOf(':');
+      if (idx < 0) continue;
+      const chave = semGrupo.slice(0, idx).toUpperCase(), valor = semGrupo.slice(idx+1).trim();
+      if (chave.startsWith('FN')) atual.nome = valor;
+      else if (chave.startsWith('N') && !atual.nome) {
+        const p = valor.split(';'); atual.nome = [p[1], p[0]].filter(Boolean).join(' ').trim();
+      }
+      else if (chave.startsWith('ORG')) atual.org = valor.replace(/;/g,' ').trim();
+      else if (chave.startsWith('TEL') && valor) atual.fones.push(valor);
+    }
+  }
+  return out;
+}
+
+// CSV genérico (Google Contatos, Excel etc.)
+function lerCSV(texto){
+  texto = texto.replace(/^﻿/, '');
+  const primeira = texto.split('\n')[0] || '';
+  const delim = [';', '\t', ','].map(d => [d, primeira.split(d).length]).sort((a,b) => b[1]-a[1])[0][0];
+  const linhas = []; let campo = '', linha = [], aspas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (aspas) {
+      if (c === '"' && texto[i+1] === '"') { campo += '"'; i++; }
+      else if (c === '"') aspas = false;
+      else campo += c;
+    } else if (c === '"') aspas = true;
+    else if (c === delim) { linha.push(campo); campo = ''; }
+    else if (c === '\n') { linha.push(campo); linhas.push(linha); linha = []; campo = ''; }
+    else if (c !== '\r') campo += c;
+  }
+  if (campo || linha.length) { linha.push(campo); linhas.push(linha); }
+  if (!linhas.length) return [];
+  const cab = linhas[0].map(h => h.trim().toLowerCase());
+  const temCab = cab.some(h => /nome|name|phone|telefone|celular|mobile|whatsapp/.test(h));
+  if (!temCab) { // sem cabeçalho: coluna 1 nome, coluna 2 telefone
+    return linhas.filter(l => l.length >= 2).map(l => ({ nome: l[0].trim(), bruto: l[1] }));
+  }
+  const iFone = cab.map((h,i) => /phone|telefone|celular|mobile|whatsapp|fone/.test(h) && !/type|label|tipo/.test(h) ? i : -1).filter(i => i >= 0);
+  const iNomeCompleto = cab.findIndex(h => h === 'name' || h === 'nome' || h === 'display name');
+  const iNomeParcial = cab.findIndex(h => h === 'given name' || h === 'first name');
+  const iSobre = cab.findIndex(h => h === 'family name' || h === 'last name' || h === 'sobrenome');
+  const iOrg = cab.findIndex(h => /organization.*name|empresa|company/.test(h));
+  const out = [];
+  for (const l of linhas.slice(1)) {
+    let nome = iNomeCompleto >= 0 ? (l[iNomeCompleto] || '').trim() : '';
+    if (!nome && iNomeParcial >= 0) {
+      nome = (l[iNomeParcial] || '').trim();
+      if (iSobre >= 0 && l[iSobre]) nome = (nome + ' ' + l[iSobre]).trim();
+    }
+    if (!nome && iOrg >= 0) nome = (l[iOrg] || '').trim();
+    iFone.forEach(i => (l[i] || '').split(/:::|\n/).forEach(f => { if (f.trim()) out.push({ nome, bruto: f.trim() }); }));
+  }
+  return out;
+}
+
+// Texto livre: "Nome; número", "Nome - número", "número Nome"...
+function lerTexto(texto){
+  const out = []; let ultimoNome = '';
+  for (const linhaBruta of texto.split(/\r?\n/)) {
+    const linha = linhaBruta.trim();
+    if (!linha) continue;
+    const m = linha.match(/\+?\(?\d[\d\s().\-]{7,}\d/);
+    if (!m) { ultimoNome = linha.replace(/[;:,\-–]+$/,'').trim(); continue; }
+    let nome = (linha.slice(0, m.index) + ' ' + linha.slice(m.index + m[0].length)).replace(/[;:|,\-–]+/g,' ').replace(/\s+/g,' ').trim();
+    if (!nome) nome = ultimoNome; else ultimoNome = nome;
+    out.push({ nome, bruto: m[0] });
+  }
+  return out;
+}
+
+/* ---------- montagem da lista de revisão ---------- */
+function montarRevisao(lista){
+  const jaSalvos = new Set(salvos.map(s => s.telefone));
+  const vistos = new Set();
+  itens = [];
+  let dupl = 0, invalidos = 0, jaTem = 0;
+  for (const c of lista) {
+    const n = normalizarFone(c.bruto);
+    let extra = n.aviso, status = n.status;
+    if (status === 'erro') { invalidos++; }
+    if (vistos.has(n.fone)) { dupl++; continue; }
+    vistos.add(n.fone);
+    const salvo = jaSalvos.has(n.fone);
+    if (salvo) jaTem++;
+    itens.push({ id: ++seqId, nome: c.nome || '(sem nome)', fone: n.fone, status, aviso: extra, salvo, sel: false });
+  }
+  itens.sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+  $('resumoLeitura').textContent = `${itens.length} números lidos` + (dupl ? ` · ${dupl} repetidos ignorados` : '') + (invalidos ? ` · ${invalidos} inválidos` : '') + (jaTem ? ` · ${jaTem} já salvos` : '');
+  $('passoEntrada').classList.add('hide');
+  $('passoRevisao').classList.remove('hide');
+  $('busca').value = '';
+  desenharRevisao();
+}
+
+function visiveis(){
+  const q = $('busca').value.trim().toLowerCase();
+  const qd = q.replace(/\D/g,'');
+  return itens.filter(i => !q || i.nome.toLowerCase().includes(q) || (qd && i.fone.includes(qd)));
+}
+
+function desenharRevisao(){
+  const lista = visiveis();
+  $('listaRevisao').innerHTML = lista.length ? lista.map(i => {
+    const bloq = i.status === 'erro' || i.salvo;
+    return `<label class="item">
+      <input type="checkbox" data-id="${i.id}" ${i.sel ? 'checked' : ''} ${bloq ? 'disabled' : ''}>
+      <div class="info">
+        <div class="nome">${esc(i.nome)}${i.salvo ? '<span class="badge ok">já salvo</span>' : ''}${i.status === 'erro' ? `<span class="badge erro">${esc(i.aviso)}</span>` : ''}${i.status === 'aviso' ? `<span class="badge aviso">${esc(i.aviso)}</span>` : ''}</div>
+        <div class="fone">${i.status === 'erro' ? esc(i.fone) : esc(formatarFone(i.fone))}</div>
+      </div></label>`;
+  }).join('') : '<p class="mut">Nenhum contato encontrado.</p>';
+  atualizarContador();
+}
+
+function atualizarContador(){
+  const n = itens.filter(i => i.sel).length;
+  $('cntSel').textContent = n;
+  $('barraSalvar').style.display = (!$('passoRevisao').classList.contains('hide') && n > 0) ? 'flex' : 'none';
+}
+
+/* ---------- salvar / listar ---------- */
+async function carregarSalvos(){
+  const { data, error } = await sb.from('zap_contatos').select('id,nome,telefone,etiquetas,ultimo_envio').order('nome');
+  if (error) { msg($('msgClientes'), 'Erro ao carregar: ' + error.message, 'err'); return; }
+  salvos = data || [];
+  $('qtdClientes').textContent = salvos.length ? `(${salvos.length})` : '';
+  desenharClientes();
+}
+
+function desenharClientes(){
+  const q = $('buscaClientes').value.trim().toLowerCase(), qd = q.replace(/\D/g,'');
+  const lista = salvos.filter(s => !q || s.nome.toLowerCase().includes(q) || (qd && s.telefone.includes(qd)));
+  $('listaClientes').innerHTML = lista.length ? lista.map(s => `
+    <div class="item">
+      <div class="info">
+        <div class="nome">${esc(s.nome)}${(s.etiquetas||[]).map(e => `<span class="badge">${esc(e)}</span>`).join('')}</div>
+        <div class="fone">${esc(formatarFone(s.telefone))}${s.ultimo_envio ? `<span class="badge ok">enviado em ${new Date(s.ultimo_envio).toLocaleDateString('pt-BR')}</span>` : ''}</div>
+      </div>
+      <button class="sec" data-del="${s.id}">Remover</button>
+    </div>`).join('') : '<p class="mut">Nenhum cliente salvo ainda. Importe sua agenda na aba Importar.</p>';
+}
+
+async function salvarMarcados(){
+  const marcados = itens.filter(i => i.sel && i.status !== 'erro' && !i.salvo);
+  if (!marcados.length) return;
+  const etq = $('etiquetaImp').value.split(',').map(s => s.trim()).filter(Boolean);
+  const btn = $('btnSalvar'); btn.disabled = true; btn.textContent = 'Salvando...';
+  const linhas = marcados.map(i => ({ user_id: usuario.id, nome: i.nome, telefone: i.fone, etiquetas: etq }));
+  let erro = null;
+  for (let k = 0; k < linhas.length && !erro; k += 200) {
+    const { error } = await sb.from('zap_contatos').upsert(linhas.slice(k, k+200), { onConflict: 'user_id,telefone' });
+    if (error) erro = error;
+  }
+  btn.disabled = false; btn.textContent = 'Salvar clientes marcados';
+  if (erro) { alert('Erro ao salvar: ' + erro.message); return; }
+  await carregarSalvos();
+  itens = []; $('listaRevisao').innerHTML = '';
+  $('passoRevisao').classList.add('hide'); $('passoEntrada').classList.remove('hide');
+  $('txtColar').value = ''; $('arquivo').value = '';
+  atualizarContador();
+  trocarAba('clientes');
+  msg($('msgClientes'), `${linhas.length} clientes salvos.`, 'ok');
+}
+
+/* ---------- eventos ---------- */
+function trocarAba(qual){
+  $('abaImportar').classList.toggle('hide', qual !== 'importar');
+  $('abaClientes').classList.toggle('hide', qual !== 'clientes');
+  $('abaEnviar').classList.toggle('hide', qual !== 'enviar');
+  $('tabImportar').classList.toggle('on', qual === 'importar');
+  $('tabClientes').classList.toggle('on', qual === 'clientes');
+  $('tabEnviar').classList.toggle('on', qual === 'enviar');
+  if (qual !== 'clientes') msg($('msgClientes'), '', '');
+  if (qual === 'enviar') desenharEscolhaEnvio();
+  atualizarContador();
+}
+$('tabImportar').onclick = () => trocarAba('importar');
+$('tabClientes').onclick = () => trocarAba('clientes');
+$('tabEnviar').onclick = () => trocarAba('enviar');
+
+$('btnLerTexto').onclick = () => {
+  const t = $('txtColar').value.trim();
+  if (!t) return alert('Cole a lista primeiro.');
+  const lista = t.startsWith('BEGIN:VCARD') ? lerVCF(t) : lerTexto(t);
+  if (!lista.length) return alert('Não encontrei nenhum número nessa lista.');
+  montarRevisao(lista);
+};
+
+$('arquivo').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const texto = await f.text();
+  const nome = f.name.toLowerCase();
+  let lista;
+  if (nome.endsWith('.vcf') || texto.trimStart().startsWith('BEGIN:VCARD')) lista = lerVCF(texto);
+  else if (nome.endsWith('.csv')) lista = lerCSV(texto);
+  else lista = lerTexto(texto);
+  if (!lista.length) return alert('Não encontrei nenhum número neste arquivo.');
+  montarRevisao(lista);
+};
+
+// Seletor de contatos nativo (Chrome no Android)
+if ('contacts' in navigator && 'ContactsManager' in window) {
+  $('boxAgendaDireta').classList.remove('hide');
+  $('btnAgenda').onclick = async () => {
+    try {
+      const res = await navigator.contacts.select(['name','tel'], { multiple: true });
+      const lista = [];
+      res.forEach(c => (c.tel || []).forEach(t => lista.push({ nome: (c.name && c.name[0]) || '', bruto: t })));
+      if (!lista.length) return alert('Nenhum contato com número foi escolhido.');
+      montarRevisao(lista);
+    } catch (err) { /* cancelado */ }
+  };
+}
+
+$('busca').oninput = desenharRevisao;
+$('buscaClientes').oninput = desenharClientes;
+$('listaRevisao').addEventListener('change', e => {
+  const id = +e.target.dataset.id; if (!id) return;
+  const it = itens.find(i => i.id === id); if (it) it.sel = e.target.checked;
+  atualizarContador();
+});
+$('btnMarcarVisiveis').onclick = () => { visiveis().forEach(i => { if (i.status !== 'erro' && !i.salvo) i.sel = true; }); desenharRevisao(); };
+$('btnLimpar').onclick = () => { itens.forEach(i => i.sel = false); desenharRevisao(); };
+$('btnVoltar').onclick = () => { itens = []; $('passoRevisao').classList.add('hide'); $('passoEntrada').classList.remove('hide'); atualizarContador(); };
+$('btnSalvar').onclick = salvarMarcados;
+
+$('listaClientes').addEventListener('click', async e => {
+  const id = e.target.dataset.del; if (!id) return;
+  if (!confirm('Remover este cliente da lista?')) return;
+  const { error } = await sb.from('zap_contatos').delete().eq('id', id);
+  if (error) return msg($('msgClientes'), 'Erro ao remover: ' + error.message, 'err');
+  await carregarSalvos();
+});
+
+/* ---------- ABA ENVIAR: modelos de mensagem ---------- */
+let modelos = [];
+let modeloAtualId = '';
+
+function primeiroNome(nome){ return (nome || '').trim().split(/\s+/)[0] || nome || ''; }
+function personalizarTexto(template, nome){
+  return String(template || '').replaceAll('{nome}', nome).replaceAll('{primeiro_nome}', primeiroNome(nome));
+}
+
+async function carregarModelos(){
+  const { data, error } = await sb.from('zap_modelos').select('id,titulo,texto').order('titulo');
+  if (error) return;
+  modelos = data || [];
+  const atual = $('selModelo').value;
+  $('selModelo').innerHTML = '<option value="">Nova mensagem</option>' + modelos.map(m => `<option value="${m.id}">${esc(m.titulo)}</option>`).join('');
+  $('selModelo').value = modelos.some(m => m.id === atual) ? atual : '';
+}
+
+function atualizarPreviewModelo(){
+  const t = $('textoModelo').value;
+  $('previewModelo').textContent = t ? 'Prévia: ' + personalizarTexto(t, 'Maria') : '';
+}
+
+$('selModelo').onchange = () => {
+  modeloAtualId = $('selModelo').value;
+  const m = modelos.find(x => x.id === modeloAtualId);
+  $('tituloModelo').value = m ? m.titulo : '';
+  $('textoModelo').value = m ? m.texto : '';
+  atualizarPreviewModelo();
+};
+$('textoModelo').oninput = atualizarPreviewModelo;
+
+$('btnSalvarModelo').onclick = async () => {
+  const titulo = $('tituloModelo').value.trim();
+  const texto = $('textoModelo').value.trim();
+  if (!titulo) return alert('Dê um nome para o modelo.');
+  if (!texto) return alert('Escreva o texto da mensagem.');
+  const btn = $('btnSalvarModelo'); btn.disabled = true;
+  let error;
+  if (modeloAtualId) {
+    ({ error } = await sb.from('zap_modelos').update({ titulo, texto }).eq('id', modeloAtualId));
+  } else {
+    const resp = await sb.from('zap_modelos').insert({ user_id: usuario.id, titulo, texto }).select('id').single();
+    error = resp.error;
+    if (!error) modeloAtualId = resp.data.id;
+  }
+  btn.disabled = false;
+  if (error) return alert('Erro ao salvar modelo: ' + error.message);
+  await carregarModelos();
+  $('selModelo').value = modeloAtualId;
+};
+
+$('btnExcluirModelo').onclick = async () => {
+  if (!modeloAtualId) return alert('Nenhum modelo salvo está selecionado.');
+  if (!confirm('Excluir este modelo?')) return;
+  const { error } = await sb.from('zap_modelos').delete().eq('id', modeloAtualId);
+  if (error) return alert('Erro ao excluir: ' + error.message);
+  modeloAtualId = '';
+  $('tituloModelo').value = ''; $('textoModelo').value = ''; atualizarPreviewModelo();
+  await carregarModelos();
+};
+
+/* ---------- ABA ENVIAR: escolher clientes ---------- */
+const selecaoEnvio = new Set();
+let etiquetaFiltroEnvio = '';
+
+function todasEtiquetas(){
+  const s = new Set();
+  salvos.forEach(c => (c.etiquetas || []).forEach(e => s.add(e)));
+  return [...s].sort((a,b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function visiveisEnvio(){
+  const q = $('buscaEnvio').value.trim().toLowerCase(), qd = q.replace(/\D/g,'');
+  return salvos.filter(s =>
+    (!q || s.nome.toLowerCase().includes(q) || (qd && s.telefone.includes(qd))) &&
+    (!etiquetaFiltroEnvio || (s.etiquetas || []).includes(etiquetaFiltroEnvio))
+  );
+}
+
+function desenharChipsEtiquetas(){
+  const et = todasEtiquetas();
+  $('filtroEtiquetasEnvio').innerHTML = et.length ? et.map(e =>
+    `<button type="button" class="chip${e === etiquetaFiltroEnvio ? ' on' : ''}" data-et="${esc(e)}">${esc(e)}</button>`
+  ).join('') : '';
+}
+
+function desenharEscolhaEnvio(){
+  desenharChipsEtiquetas();
+  const lista = visiveisEnvio();
+  $('listaEscolhaEnvio').innerHTML = lista.length ? lista.map(s => `
+    <label class="item">
+      <input type="checkbox" data-envid="${s.id}" ${selecaoEnvio.has(s.id) ? 'checked' : ''}>
+      <div class="info">
+        <div class="nome">${esc(s.nome)}${(s.etiquetas||[]).map(e => `<span class="badge">${esc(e)}</span>`).join('')}</div>
+        <div class="fone">${esc(formatarFone(s.telefone))}${s.ultimo_envio ? `<span class="badge ok">enviado em ${new Date(s.ultimo_envio).toLocaleDateString('pt-BR')}</span>` : ''}</div>
+      </div>
+    </label>`).join('') : '<p class="mut">Nenhum cliente salvo ainda. Importe sua agenda na aba Importar.</p>';
+  $('cntEnvioSel').textContent = selecaoEnvio.size;
+}
+
+$('buscaEnvio').oninput = desenharEscolhaEnvio;
+$('filtroEtiquetasEnvio').addEventListener('click', e => {
+  const et = e.target.dataset.et; if (et === undefined) return;
+  etiquetaFiltroEnvio = etiquetaFiltroEnvio === et ? '' : et;
+  desenharEscolhaEnvio();
+});
+$('listaEscolhaEnvio').addEventListener('change', e => {
+  const id = e.target.dataset.envid; if (!id) return;
+  if (e.target.checked) selecaoEnvio.add(id); else selecaoEnvio.delete(id);
+  $('cntEnvioSel').textContent = selecaoEnvio.size;
+});
+$('btnMarcarVisiveisEnvio').onclick = () => { visiveisEnvio().forEach(s => selecaoEnvio.add(s.id)); desenharEscolhaEnvio(); };
+$('btnLimparEnvio').onclick = () => { selecaoEnvio.clear(); desenharEscolhaEnvio(); };
+
+/* ---------- ABA ENVIAR: fila de envio ---------- */
+let filaEnvio = [];
+
+function desenharFila(){
+  const pend = filaEnvio.filter(f => f.status === 'pendente' || f.status === 'aberto').length;
+  const env = filaEnvio.filter(f => f.status === 'enviado').length;
+  const pul = filaEnvio.filter(f => f.status === 'pulado').length;
+  $('resumoFila').textContent = `${pend} pendentes · ${env} enviados · ${pul} pulados`;
+  $('listaFila').innerHTML = filaEnvio.map((f, idx) => `
+    <div class="item ${f.status === 'enviado' ? 'enviado' : ''} ${f.status === 'pulado' ? 'pulado' : ''}">
+      <div class="info">
+        <div class="nome">${esc(f.contato.nome)}${f.status === 'enviado' ? '<span class="badge ok">enviado</span>' : ''}${f.status === 'pulado' ? '<span class="badge">pulado</span>' : ''}</div>
+        <div class="fone">${esc(formatarFone(f.contato.telefone))}</div>
+        <div class="prev">${esc(f.texto)}</div>
+      </div>
+      <div class="btns">
+        ${f.status !== 'enviado' && f.status !== 'pulado' ? `<button class="btn-wpp" data-abrir="${idx}">Abrir WhatsApp</button>` : ''}
+        ${f.status === 'aberto' ? `<button class="sec" data-marcar="${idx}">Marcar enviado</button>` : ''}
+        ${f.status !== 'enviado' && f.status !== 'pulado' ? `<button class="btn-pular" data-pular="${idx}">Pular</button>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+$('btnMontarFila').onclick = () => {
+  const texto = $('textoModelo').value.trim();
+  if (!texto) return alert('Escreva (ou escolha) a mensagem no passo 1 antes de montar a fila.');
+  if (!selecaoEnvio.size) return alert('Marque pelo menos um cliente no passo 2.');
+  const escolhidos = salvos.filter(s => selecaoEnvio.has(s.id)).sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+  filaEnvio = escolhidos.map(c => ({ contato: c, texto: personalizarTexto(texto, c.nome), status: 'pendente' }));
+  $('cardFila').classList.remove('hide');
+  desenharFila();
+  $('cardFila').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+$('listaFila').addEventListener('click', async e => {
+  const iAbrir = e.target.dataset.abrir, iMarcar = e.target.dataset.marcar, iPular = e.target.dataset.pular;
+  if (iAbrir !== undefined) {
+    const f = filaEnvio[+iAbrir];
+    window.open(`https://wa.me/${f.contato.telefone}?text=${encodeURIComponent(f.texto)}`, '_blank');
+    f.status = 'aberto';
+    desenharFila();
+  } else if (iMarcar !== undefined) {
+    const f = filaEnvio[+iMarcar];
+    f.status = 'enviado';
+    desenharFila();
+    const agora = new Date().toISOString();
+    const { error } = await sb.from('zap_contatos').update({ ultimo_envio: agora }).eq('id', f.contato.id);
+    if (!error) { f.contato.ultimo_envio = agora; const s = salvos.find(x => x.id === f.contato.id); if (s) s.ultimo_envio = agora; }
+  } else if (iPular !== undefined) {
+    filaEnvio[+iPular].status = 'pulado';
+    desenharFila();
+  }
+});
+
+/* ---------- autenticação ---------- */
+async function entrar(){
+  msg($('lgMsg'), '', '');
+  const { error } = await sb.auth.signInWithPassword({ email: $('lgEmail').value.trim(), password: $('lgSenha').value });
+  if (error) return msg($('lgMsg'), 'E-mail ou senha incorretos.', 'err');
+  iniciar();
+}
+async function sair(){ await sb.auth.signOut(); location.reload(); }
+$('btnEntrar').onclick = entrar;
+$('lgSenha').addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); });
+$('btnSair').onclick = sair; $('btnSair2').onclick = sair;
+
+async function iniciar(){
+  const { data } = await sb.auth.getSession();
+  const sessao = data.session;
+  if (!sessao) return;
+  usuario = sessao.user;
+  $('telaLogin').classList.add('hide');
+  $('btnSair').classList.remove('hide');
+  if ((usuario.email || '').toLowerCase() !== ADMIN_EMAIL) { $('telaSemAcesso').classList.remove('hide'); return; }
+  $('telaApp').classList.remove('hide');
+  await carregarSalvos();
+  await carregarModelos();
+}
+iniciar();
+</script>
+</body>
+</html>
