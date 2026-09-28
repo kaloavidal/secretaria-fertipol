@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AduboCalc</title>
 <meta name="apple-mobile-web-app-title" content="AduboCalc">
+<meta name="theme-color" content="#3E6B3A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="adubocalc-manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="adubocalc-icon-192.png">
+<link rel="apple-touch-icon" href="adubocalc-icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -557,6 +564,15 @@ checkSession();
   const errEl = document.getElementById('loginError');
   if(errEl){ errEl.textContent = 'Erro ao carregar: ' + initError.message; errEl.style.display = 'block'; }
   console.error(initError);
+}
+
+// Registra o service worker (permite o app abrir mesmo sem internet, depois da 1ª visita online)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('adubocalc-sw.js').catch((err) => {
+      console.warn('Não consegui registrar o service worker:', err);
+    });
+  });
 }
 </script>
 </body>
