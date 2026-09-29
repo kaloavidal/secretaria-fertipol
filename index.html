@@ -436,6 +436,8 @@ const SUPABASE_KEY = 'sb_publishable_QTc4nyqrjNyoUMbBXaU-Hw_rKtKp6Yg';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let records = [];
+let ultimosResultadosMenorCusto = [];
+let ultimosTargetsMenorCusto = {};
 let filterText = '';
 let potencialFilterValue = '';
 let statusFilterValue = '';
@@ -2192,6 +2194,9 @@ function calcularMenorCusto(){
     return;
   }
 
+  ultimosResultadosMenorCusto = resultados;
+  ultimosTargetsMenorCusto = targets;
+
   let html = '<p style="font-size:12.5px;color:var(--ink-faint);margin-bottom:12px;">' + resultados.length + (resultados.length === 1 ? ' combinação encontrada' : ' combinações encontradas') + ', ordenadas da mais barata pra mais cara.</p>';
   resultados.forEach((r, idx) => {
     const linhasItens = r.itens.map(x => '<div class="hist-item">' + escapeHtml(x.formulacao.nome) + ' — ' + x.dose.toFixed(1) + ' kg/ha (R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '/ha)</div>').join('');
@@ -2200,14 +2205,104 @@ function calcularMenorCusto(){
       return label + ': ' + r.delivered[k].toFixed(1) + '/' + targets[k].toFixed(1) + ' kg/ha';
     }).join(' · ');
     html += '<div class="proposta-card" style="margin-bottom:12px;">' +
-      '<div class="proposta-head"><span>' + (idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx+1)) + '</span><span class="tipo-badge">R$ ' + r.custoHa.toFixed(2) + '/ha</span></div>' +
+      '<div class="proposta-head"><span>' + (idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx+1)) + '</span>' +
+        '<span style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="tipo-badge">R$ ' + r.custoHa.toFixed(2) + '/ha</span>' +
+          '<button type="button" class="export-btn" data-export-mc-idx="' + idx + '" style="padding:4px 10px;" title="Exportar este resultado como card">📤 Exportar</button>' +
+        '</span>' +
+      '</div>' +
       '<div style="padding:10px 14px;">' + linhasItens + '</div>' +
       '<div class="proposta-foot">Entrega: ' + escapeHtml(entregaTxt) + '</div>' +
       '</div>';
   });
   container.innerHTML = html;
+  container.querySelectorAll('[data-export-mc-idx]').forEach(btn => {
+    btn.addEventListener('click', () => gerarImagemMenorCusto(parseInt(btn.dataset.exportMcIdx, 10), btn));
+  });
 }
 document.getElementById('calcularMenorCustoBtn').addEventListener('click', calcularMenorCusto);
+
+// ---- Exportar resultado do "Menor custo por hectare" como card/imagem ----
+async function gerarImagemMenorCusto(idx, btnEl){
+  const r = ultimosResultadosMenorCusto[idx];
+  if(!r) return;
+  const targets = ultimosTargetsMenorCusto;
+  const original = btnEl ? btnEl.textContent : '';
+  if(btnEl){ btnEl.textContent = 'Gerando…'; btnEl.disabled = true; }
+  let container = null;
+  try{
+    const labelNut = { n: 'N', p2o5: 'P2O5', k2o: 'K2O', s: 'S' };
+    const pontosHtml = Object.keys(targets).filter(k => targets[k] > 0).map(k =>
+      '<div style="flex:1;min-width:110px;background:#E1E9DE;border-radius:8px;padding:10px 12px;text-align:center;">' +
+        '<div style="font-size:11px;color:#5B5648;text-transform:uppercase;letter-spacing:.03em;">' + labelNut[k] + '</div>' +
+        '<div style="font-size:19px;font-weight:600;color:#253C29;">' + targets[k].toFixed(1) + '</div>' +
+        '<div style="font-size:10.5px;color:#948E7C;">kg/ha</div>' +
+      '</div>'
+    ).join('');
+    const itensHtml = r.itens.map(x =>
+      '<tr><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + escapeHtml(x.formulacao.nome) + '</td>' +
+        '<td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + x.dose.toFixed(1) + ' kg/ha</td>' +
+        '<td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">R$ ' + (x.formulacao.preco_ton * x.dose / 1000).toFixed(2) + '</td></tr>'
+    ).join('');
+    const tituloOpcao = idx === 0 ? 'Opção mais barata' : 'Opção ' + (idx + 1);
+
+    container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '600px';
+    container.style.background = '#F1EFE3';
+    container.style.padding = '32px';
+    container.style.fontFamily = "'IBM Plex Sans', sans-serif";
+    container.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+        '<img src="' + LOGO_FERTIPOL + '" style="height:50px;width:auto;">' +
+        '<img src="' + LOGO_VIDAL + '" style="height:76px;width:auto;">' +
+      '</div>' +
+      '<div style="font-family:\'Fraunces\',serif;font-weight:500;font-size:24px;color:#253C29;margin-bottom:4px;">Comparador de adubação</div>' +
+      '<div style="font-size:14px;color:#5B5648;margin-bottom:20px;">' + tituloOpcao + '</div>' +
+      '<div style="font-size:12px;color:#5B5648;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Pontos de nutrientes utilizados</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">' + pontosHtml + '</div>' +
+      '<div style="border:1px solid #DEDACB;border-radius:10px;overflow:hidden;background:#FAF8F0;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:14px;background:#fff;"><thead><tr>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Formulação</th>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Dose</th>' +
+          '<th style="text-align:left;font-weight:500;color:#948E7C;font-size:11.5px;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #DEDACB;">Custo</th>' +
+          '</tr></thead><tbody style="color:#26231C;">' + itensHtml + '</tbody></table>' +
+        '<div style="padding:12px 16px;font-size:16px;font-weight:500;color:#253C29;background:#E1E9DE;text-align:right;">Total: R$ ' + r.custoHa.toFixed(2) + '/ha</div>' +
+        '<div style="padding:10px 16px;font-size:13px;color:#948E7C;border-top:1px dashed #C7C2AE;">' + escapeHtml(ASSINATURA) + '</div>' +
+      '</div>';
+    document.body.appendChild(container);
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; })));
+
+    const canvas = await html2canvas(container, { backgroundColor: '#F1EFE3', scale: 2 });
+    document.body.removeChild(container);
+    container = null;
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const fileName = 'comparador_resultado_' + (idx + 1) + '.png';
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], title: 'Comparador de adubação' });
+    }else{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showConfirm('Imagem baixada — já pode anexar no WhatsApp.');
+    }
+  }catch(e){
+    if(container && container.parentNode) document.body.removeChild(container);
+    if(e && e.name !== 'AbortError'){
+      showError('Não consegui gerar a imagem: ' + (e.message || e));
+    }
+  }finally{
+    if(btnEl){ btnEl.textContent = original; btnEl.disabled = false; }
+  }
+}
 
 
 checkSession();
