@@ -8,7 +8,8 @@ const APP_SHELL = [
   './adubocalc-manifest.json',
   './adubocalc-icon-192.png',
   './adubocalc-icon-512.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
 ];
 
 self.addEventListener('install', (event) => {
