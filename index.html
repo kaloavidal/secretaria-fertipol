@@ -167,6 +167,17 @@
     padding:8px 10px;cursor:pointer;font-size:12px;
   }
   .item-subtotal{font-size:12px;color:var(--ink-faint);margin:-4px 0 8px;}
+  .add-prazo-btn{font-family:inherit;font-size:12px;color:var(--green-deep);background:none;border:none;text-decoration:underline;cursor:pointer;padding:0;margin:-2px 0 8px;display:block;}
+  .cond-box{margin:0 0 8px 12px;padding-left:10px;border-left:2px solid var(--line-strong);}
+  .cond-first{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;margin-bottom:6px;font-size:12px;color:var(--ink-faint);}
+  .cond-line{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center;}
+  .cond-first input, .cond-line input{
+    font-family:inherit;font-size:13.5px;padding:8px 9px;border:1px solid var(--line-strong);border-radius:6px;background:#fff;width:100%;
+  }
+  .cond-line .rm-cond{
+    background:transparent;border:1px solid var(--line-strong);border-radius:6px;color:var(--danger);
+    padding:8px 10px;cursor:pointer;font-size:12px;
+  }
   @media (max-width: 480px){
     .item-row{grid-template-columns:1fr 1fr;}
   }
@@ -312,7 +323,7 @@
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>
-          <label for="propostaPrazo">Prazo de pagamento</label>
+          <label for="propostaPrazo">Prazo de pagamento (geral)</label>
           <input type="text" id="propostaPrazo" placeholder="Ex: à vista, prazo colheita" style="width:100%;font-family:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:7px;background:#fff;">
         </div>
         <div>
@@ -1090,18 +1101,8 @@ function imprimirProposta(clienteNome, p){
   let totalHtml = '';
   let rodapeHtml = '';
   if(p.itens){
-    linhasTabela = p.itens.map(it => {
-      const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade + ' ton' : '—';
-      const unid = it.unidade || '';
-      const valorUnit = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? 'R$ ' + Number(it.valor_unitario).toFixed(2) + '/ton' : '—';
-      const sub = (it.subtotal !== null && it.subtotal !== undefined) ? 'R$ ' + Number(it.subtotal).toFixed(2) : '—';
-      return '<tr><td>' + escapeHtml(it.produto || '—') + (unid ? ' (' + escapeHtml(unid) + ')' : '') + '</td><td>' + escapeHtml(String(qtd)) + '</td><td>' + valorUnit + '</td><td>' + sub + '</td></tr>';
-    }).join('');
-    if(p.tipo === 'combinado' && p.total !== null && p.total !== undefined){
-      totalHtml = '<div class="proposta-total">Total: R$ ' + Number(p.total).toFixed(2) + '</div>';
-    }else if(p.tipo === 'alternativas'){
-      totalHtml = '<div class="proposta-foot">Alternativas — cliente escolhe uma opção</div>';
-    }
+    linhasTabela = p.itens.map(it => linhasItemHtml(it, { td: '', faint: '#948E7C' })).join('');
+    totalHtml = totalPropostaHtml(p, ' class="proposta-total"', ' class="proposta-foot"');
     const rodapeItens = [];
     if(p.prazo_pagamento) rodapeItens.push('Prazo: ' + escapeHtml(p.prazo_pagamento));
     if(p.validade) rodapeItens.push('Válida até: ' + escapeHtml(p.validade));
@@ -1191,17 +1192,9 @@ function render(){
             '<button type="button" class="print-proposta-btn" data-img-idx="' + printIdx + '">Cartão (imagem)</button>' +
             '<button type="button" class="print-proposta-btn" data-edit-idx="' + printIdx + '">Editar</button>';
           if(p.itens){
-            const linhas = p.itens.map(it => {
-              const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade + ' ton' : '—';
-              const unid = it.unidade || '';
-              const valorUnit = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? 'R$ ' + Number(it.valor_unitario).toFixed(2) + '/ton' : '—';
-              const sub = (it.subtotal !== null && it.subtotal !== undefined) ? 'R$ ' + Number(it.subtotal).toFixed(2) : '—';
-              return '<tr><td>' + escapeHtml(it.produto || '—') + (unid ? ' <span style="color:var(--ink-faint);font-size:11px;">(' + escapeHtml(unid) + ')</span>' : '') + '</td><td>' + escapeHtml(String(qtd)) + '</td><td>' + valorUnit + '</td><td>' + sub + '</td></tr>';
-            }).join('');
+            const linhas = p.itens.map(it => linhasItemHtml(it, { td: '', faint: 'var(--ink-faint)' })).join('');
             const tipoLabel = p.tipo === 'alternativas' ? 'Alternativas' : 'Pacote combinado';
-            const totalHtml = (p.tipo === 'combinado' && p.total !== null && p.total !== undefined)
-              ? '<div class="proposta-total">Total: R$ ' + Number(p.total).toFixed(2) + '</div>'
-              : (p.tipo === 'alternativas' ? '<div class="proposta-foot">Alternativas — cliente escolhe uma opção</div>' : '');
+            const totalHtml = totalPropostaHtml(p, ' class="proposta-total"', ' class="proposta-foot"');
             const rodape = (p.prazo_pagamento || p.validade)
               ? '<div class="proposta-foot">' + [p.prazo_pagamento ? ('Prazo: ' + escapeHtml(p.prazo_pagamento)) : '', p.validade ? ('Válida até: ' + escapeHtml(p.validade)) : ''].filter(Boolean).join(' · ') + '</div>'
               : '';
@@ -1352,6 +1345,81 @@ function atualizarDatalistClientes(){
   dl.innerHTML = records.map(r => '<option value="' + escapeHtml(r.cliente) + '">').join('');
 }
 
+// ---- Condições de pagamento por item (mesmo produto, mais de um prazo) ----
+// Modelo: item.condicoes = [{ prazo, valor_unitario, subtotal }, ...] (opcional).
+// item.valor_unitario / item.subtotal continuam sempre = 1ª condição, então
+// propostas antigas (sem "condicoes") e qualquer leitura antiga seguem funcionando.
+function condicoesDoItem(it){
+  if(it.condicoes && it.condicoes.length) return it.condicoes;
+  return [{ prazo: '', valor_unitario: (it.valor_unitario === undefined ? null : it.valor_unitario), subtotal: (it.subtotal === undefined ? null : it.subtotal) }];
+}
+function itemTemVariosPrazos(it){ return !!(it.condicoes && it.condicoes.length > 1); }
+function normalizarPrazo(s){ return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+
+// Pacote combinado com itens em vários prazos: um total para cada prazo que
+// aparece em TODOS os itens com vários prazos. Itens com um valor só entram
+// em todos os totais (é um item que não muda com o prazo).
+function totaisPorPrazo(itens){
+  const multi = itens.filter(itemTemVariosPrazos);
+  if(!multi.length) return { totais: [], ignorados: [] };
+  const rotulos = [];
+  const vistos = new Set();
+  multi.forEach(it => it.condicoes.forEach(c => {
+    const k = normalizarPrazo(c.prazo);
+    if(k && !vistos.has(k)){ vistos.add(k); rotulos.push({ k, rotulo: String(c.prazo).trim() }); }
+  }));
+  const totais = [];
+  const ignorados = [];
+  rotulos.forEach(({ k, rotulo }) => {
+    let soma = 0, completo = true;
+    itens.forEach(it => {
+      const c = itemTemVariosPrazos(it)
+        ? it.condicoes.find(x => normalizarPrazo(x.prazo) === k)
+        : condicoesDoItem(it)[0];
+      if(!c || c.subtotal === null || c.subtotal === undefined) completo = false;
+      else soma += c.subtotal;
+    });
+    if(completo) totais.push({ prazo: rotulo, total: soma });
+    else ignorados.push(rotulo);
+  });
+  return { totais, ignorados };
+}
+
+// Linhas <tr> de um item na tabela da proposta. Uma linha por prazo; produto e
+// quantidade ocupam todas elas (rowspan). o.td = atributos do <td>; o.faint = cor do texto de apoio.
+function linhasItemHtml(it, o){
+  const conds = condicoesDoItem(it);
+  const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade + ' ton' : '—';
+  const unid = it.unidade || '';
+  const nome = escapeHtml(it.produto || '—') + (unid ? ' <span style="color:' + o.faint + ';font-size:11px;">(' + escapeHtml(unid) + ')</span>' : '');
+  const span = conds.length > 1 ? ' rowspan="' + conds.length + '"' : '';
+  return conds.map((c, i) => {
+    const valorUnit = (c.valor_unitario !== null && c.valor_unitario !== undefined) ? 'R$ ' + Number(c.valor_unitario).toFixed(2) + '/ton' : '—';
+    const sub = (c.subtotal !== null && c.subtotal !== undefined) ? 'R$ ' + Number(c.subtotal).toFixed(2) : '—';
+    const prazoHtml = c.prazo ? '<div style="font-size:11.5px;color:' + o.faint + ';">' + escapeHtml(c.prazo) + '</div>' : '';
+    const primeiras = i === 0
+      ? '<td' + span + o.td + '>' + nome + '</td><td' + span + o.td + '>' + escapeHtml(String(qtd)) + '</td>'
+      : '';
+    return '<tr>' + primeiras + '<td' + o.td + '>' + valorUnit + prazoHtml + '</td><td' + o.td + '>' + sub + '</td></tr>';
+  }).join('');
+}
+
+// Bloco de total(is) da proposta. attr = atributos (class/style) de cada linha de total; footAttr = idem p/ aviso.
+function totalPropostaHtml(p, attr, footAttr){
+  if(p.tipo === 'alternativas'){
+    return '<div' + footAttr + '>Alternativas — cliente escolhe uma opção</div>';
+  }
+  if(p.tipo === 'combinado'){
+    if(p.totais_por_prazo && p.totais_por_prazo.length){
+      return p.totais_por_prazo.map(t => '<div' + attr + '>Total ' + escapeHtml(t.prazo) + ': R$ ' + Number(t.total).toFixed(2) + '</div>').join('');
+    }
+    if(p.total !== null && p.total !== undefined){
+      return '<div' + attr + '>Total: R$ ' + Number(p.total).toFixed(2) + '</div>';
+    }
+  }
+  return '';
+}
+
 // ---- Itens da proposta ----
 let itemCounter = 0;
 function addItemRow(){
@@ -1368,17 +1436,75 @@ function addItemRow(){
   const subtotalLine = document.createElement('div');
   subtotalLine.className = 'item-subtotal';
   subtotalLine.dataset.subtotalFor = id;
-  document.getElementById('itensProposta').appendChild(div);
-  document.getElementById('itensProposta').appendChild(subtotalLine);
+
+  // "+ outro prazo": mesmo produto/quantidade, outro valor para outro prazo de pagamento
+  const addPrazoBtn = document.createElement('button');
+  addPrazoBtn.type = 'button';
+  addPrazoBtn.className = 'add-prazo-btn';
+  addPrazoBtn.textContent = '+ outro prazo de pagamento p/ este produto';
+  const condBox = document.createElement('div');
+  condBox.className = 'cond-box';
+  condBox.dataset.condFor = id;
+  condBox.style.display = 'none';
+
+  const lista = document.getElementById('itensProposta');
+  lista.appendChild(div);
+  lista.appendChild(addPrazoBtn);
+  lista.appendChild(condBox);
+  lista.appendChild(subtotalLine);
 
   div.querySelectorAll('.it-qtd, .it-valor').forEach(inp => inp.addEventListener('input', recalcularTotais));
+  addPrazoBtn.addEventListener('click', () => {
+    const novo = addCondRow(id, '', '');
+    if(novo){
+      // 1ª vez: o prazo do valor principal ainda está vazio, leva o foco pra lá
+      const p0 = condBox.querySelector('.it-prazo0');
+      (p0 && !p0.value ? p0 : novo.querySelector('.cp-prazo')).focus();
+    }
+  });
   div.querySelector('.rm-item').addEventListener('click', () => {
     div.remove();
+    addPrazoBtn.remove();
+    condBox.remove();
     subtotalLine.remove();
     recalcularTotais();
   });
+  return div;
 }
 document.getElementById('addItemBtn').addEventListener('click', addItemRow);
+
+function garantirCondBox(id){
+  const box = document.querySelector('.cond-box[data-cond-for="' + id + '"]');
+  if(!box) return null;
+  if(!box.querySelector('.it-prazo0')){
+    box.innerHTML =
+      '<div class="cond-first"><span>Prazo do valor acima:</span><input type="text" class="it-prazo0" placeholder="Ex: à vista"></div>' +
+      '<div class="cond-extras"></div>';
+    box.querySelector('.it-prazo0').addEventListener('input', recalcularTotais);
+  }
+  box.style.display = 'block';
+  return box;
+}
+function definirPrazoPrincipal(id, prazo){
+  const box = garantirCondBox(id);
+  if(box) box.querySelector('.it-prazo0').value = prazo || '';
+}
+function addCondRow(id, prazo, valor){
+  const box = garantirCondBox(id);
+  if(!box) return null;
+  const line = document.createElement('div');
+  line.className = 'cond-line';
+  line.innerHTML =
+    '<input type="text" class="cp-prazo" placeholder="Outro prazo (ex: 30 dias)">' +
+    '<input type="number" class="cp-valor" placeholder="R$/ton" min="0" step="any">' +
+    '<button type="button" class="rm-cond">✕</button>';
+  line.querySelector('.cp-prazo').value = prazo || '';
+  line.querySelector('.cp-valor').value = (valor === null || valor === undefined) ? '' : valor;
+  line.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalcularTotais));
+  line.querySelector('.rm-cond').addEventListener('click', () => { line.remove(); recalcularTotais(); });
+  box.querySelector('.cond-extras').appendChild(line);
+  return line;
+}
 
 function lerItensProposta(){
   const rows = document.querySelectorAll('#itensProposta .item-row');
@@ -1391,7 +1517,25 @@ function lerItensProposta(){
     const qtdNum = qtd ? parseFloat(qtd) : null;
     const valorNum = valor ? parseFloat(valor) : null;
     const subtotal = (qtdNum !== null && valorNum !== null) ? qtdNum * valorNum : null;
-    itens.push({ id: row.dataset.id, produto, quantidade: qtdNum, unidade: '', valor_unitario: valorNum, subtotal });
+    const item = { id: row.dataset.id, produto, quantidade: qtdNum, unidade: '', valor_unitario: valorNum, subtotal };
+
+    // condições extras (mesmo produto, outros prazos)
+    const box = document.querySelector('.cond-box[data-cond-for="' + row.dataset.id + '"]');
+    if(box && box.querySelector('.it-prazo0')){
+      const prazo0 = box.querySelector('.it-prazo0').value.trim();
+      const extras = [];
+      box.querySelectorAll('.cond-line').forEach(line => {
+        const p = line.querySelector('.cp-prazo').value.trim();
+        const v = line.querySelector('.cp-valor').value;
+        if(!p && v === '') return; // linha vazia, ignora
+        const vNum = v !== '' ? parseFloat(v) : null;
+        extras.push({ prazo: p, valor_unitario: vNum, subtotal: (qtdNum !== null && vNum !== null) ? qtdNum * vNum : null });
+      });
+      if(prazo0 || extras.length){
+        item.condicoes = [{ prazo: prazo0, valor_unitario: valorNum, subtotal }].concat(extras);
+      }
+    }
+    itens.push(item);
   });
   return itens;
 }
@@ -1401,11 +1545,25 @@ function recalcularTotais(){
   itens.forEach(it => {
     const line = document.querySelector('[data-subtotal-for="' + it.id + '"]');
     if(!line) return;
-    line.textContent = it.subtotal !== null ? ('Subtotal: R$ ' + it.subtotal.toFixed(2)) : '';
+    if(it.condicoes){
+      line.textContent = 'Subtotal — ' + it.condicoes.map(c =>
+        (c.prazo || 'valor') + ': ' + ((c.subtotal !== null && c.subtotal !== undefined) ? 'R$ ' + c.subtotal.toFixed(2) : '—')
+      ).join(' · ');
+    }else{
+      line.textContent = it.subtotal !== null ? ('Subtotal: R$ ' + it.subtotal.toFixed(2)) : '';
+    }
   });
   const tipo = document.querySelector('input[name="tipoProposta"]:checked').value;
   const totalLine = document.getElementById('totalPropostaLine');
-  if(tipo === 'combinado'){
+  if(tipo === 'combinado' && itens.some(itemTemVariosPrazos)){
+    const r = totaisPorPrazo(itens);
+    if(r.totais.length){
+      totalLine.textContent = r.totais.map(t => 'Total ' + t.prazo + ': R$ ' + t.total.toFixed(2)).join('  ·  ') +
+        (r.ignorados.length ? '  (sem total para: ' + r.ignorados.join(', ') + ' — falta em algum item)' : '');
+    }else{
+      totalLine.textContent = 'Total por prazo: informe quantidade, valor e prazo em todos os itens para calcular.';
+    }
+  }else if(tipo === 'combinado'){
     const comSubtotal = itens.filter(it => it.subtotal !== null);
     if(comSubtotal.length === itens.length && itens.length > 0){
       const total = itens.reduce((s, it) => s + it.subtotal, 0);
@@ -1447,9 +1605,24 @@ async function salvarProposta(){
   const prazo = document.getElementById('propostaPrazo').value.trim();
   const validade = document.getElementById('propostaValidade').value.trim();
 
+  // item com mais de um prazo: cada valor precisa ter prazo, e o prazo não pode se repetir
+  for(const it of itens){
+    if(!itemTemVariosPrazos(it)) continue;
+    const nome = it.produto || 'sem nome';
+    if(it.condicoes.some(c => !c.prazo)){ showPropostaError('Informe o prazo de pagamento de cada valor do item "' + nome + '".'); return; }
+    if(it.condicoes.some(c => c.valor_unitario === null)){ showPropostaError('Informe o valor (R$/ton) de cada prazo do item "' + nome + '".'); return; }
+    const chaves = it.condicoes.map(c => normalizarPrazo(c.prazo));
+    if(new Set(chaves).size !== chaves.length){ showPropostaError('O item "' + nome + '" tem o mesmo prazo repetido.'); return; }
+  }
+
   let total = null;
-  if(tipo === 'combinado' && itens.every(it => it.subtotal !== null)){
-    total = itens.reduce((s, it) => s + it.subtotal, 0);
+  let totaisPrazo = [];
+  if(tipo === 'combinado'){
+    if(itens.some(itemTemVariosPrazos)){
+      totaisPrazo = totaisPorPrazo(itens).totais; // um total por prazo; sem total único
+    }else if(itens.every(it => it.subtotal !== null)){
+      total = itens.reduce((s, it) => s + it.subtotal, 0);
+    }
   }
 
   const btn = document.getElementById('salvarPropostaBtn');
@@ -1459,6 +1632,7 @@ async function salvarProposta(){
       const existing = records.find(r => r.id === editingContext.clienteId);
       if(!existing){ showPropostaError('Cliente não encontrado — pode ter sido removido.'); return; }
       const propostaAtualizada = { data: editingContext.proposta.data, tipo, itens, prazo_pagamento: prazo, validade, total };
+      if(totaisPrazo.length) propostaAtualizada.totais_por_prazo = totaisPrazo;
       const novasPropostas = (existing.propostas || []).map(p => p === editingContext.proposta ? propostaAtualizada : p);
       const { error } = await supabaseClient.from('clientes')
         .update({ propostas: novasPropostas, updated_at: new Date().toISOString() })
@@ -1470,6 +1644,7 @@ async function salvarProposta(){
       const agora = new Date();
       const dataStr = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
       const novaProposta = { data: dataStr, tipo, itens, prazo_pagamento: prazo, validade, total };
+      if(totaisPrazo.length) novaProposta.totais_por_prazo = totaisPrazo;
       const existing = records.find(r => r.cliente.trim().toLowerCase() === clienteNome.toLowerCase());
       if(existing){
         const novasPropostas = [novaProposta, ...(existing.propostas || [])];
@@ -1510,12 +1685,14 @@ function iniciarEdicaoProposta(clienteId, clienteNome, proposta){
   document.getElementById('itensProposta').innerHTML = '';
   const itensBase = proposta.itens || [{ produto: proposta.produto || '', quantidade: null, unidade: '', valor_unitario: null, subtotal: null }];
   itensBase.forEach(it => {
-    addItemRow();
-    const rows = document.querySelectorAll('#itensProposta .item-row');
-    const row = rows[rows.length - 1];
+    const row = addItemRow();
     row.querySelector('.it-produto').value = it.produto || '';
     row.querySelector('.it-qtd').value = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade : '';
     row.querySelector('.it-valor').value = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? it.valor_unitario : '';
+    if(it.condicoes && it.condicoes.length){
+      definirPrazoPrincipal(row.dataset.id, it.condicoes[0].prazo);
+      it.condicoes.slice(1).forEach(c => addCondRow(row.dataset.id, c.prazo, c.valor_unitario));
+    }
   });
   recalcularTotais();
 
@@ -1542,21 +1719,37 @@ document.getElementById('cancelarEdicaoBtn').addEventListener('click', () => {
   recalcularTotais();
 });
 
-function montarTextoWhatsapp(clienteNome, tipo, itens, prazo, validade, totalPronto){
+function montarTextoWhatsapp(clienteNome, tipo, itens, prazo, validade, totalPronto, totaisPrazo){
   let linhas = [];
   linhas.push('*Proposta Fertipol*');
   if(clienteNome) linhas.push('Cliente: ' + clienteNome);
   linhas.push('');
   itens.forEach(it => {
-    let linha = '• ' + (it.produto || 'Produto');
-    if(it.quantidade !== null && it.quantidade !== undefined) linha += ' — ' + it.quantidade + ' ton' + (it.unidade ? ' (' + it.unidade + ')' : '');
+    const qtdTxt = (it.quantidade !== null && it.quantidade !== undefined) ? ' — ' + it.quantidade + ' ton' + (it.unidade ? ' (' + it.unidade + ')' : '') : '';
+    if(itemTemVariosPrazos(it)){
+      // mesmo produto, vários prazos: uma linha de cabeçalho + uma linha por prazo
+      linhas.push('• ' + (it.produto || 'Produto') + qtdTxt);
+      it.condicoes.forEach(c => {
+        let l = '   ◦ ' + (c.prazo || 'Valor') + ':';
+        if(c.valor_unitario !== null && c.valor_unitario !== undefined) l += ' R$ ' + Number(c.valor_unitario).toFixed(2) + '/ton';
+        if(c.subtotal !== null && c.subtotal !== undefined) l += ' = R$ ' + Number(c.subtotal).toFixed(2);
+        linhas.push(l);
+      });
+      return;
+    }
+    let linha = '• ' + (it.produto || 'Produto') + qtdTxt;
     if(it.valor_unitario !== null && it.valor_unitario !== undefined) linha += ' x R$ ' + Number(it.valor_unitario).toFixed(2);
     if(it.subtotal !== null && it.subtotal !== undefined) linha += ' = R$ ' + Number(it.subtotal).toFixed(2);
+    const c0 = (it.condicoes && it.condicoes.length === 1) ? it.condicoes[0] : null;
+    if(c0 && c0.prazo) linha += ' (' + c0.prazo + ')';
     linhas.push(linha);
   });
   if(tipo === 'alternativas'){
     linhas.push('');
     linhas.push('(Opções alternativas — escolha uma)');
+  }else if(totaisPrazo && totaisPrazo.length){
+    linhas.push('');
+    totaisPrazo.forEach(t => linhas.push('*Total ' + t.prazo + ': R$ ' + Number(t.total).toFixed(2) + '*'));
   }else{
     const total = totalPronto !== null && totalPronto !== undefined ? totalPronto : null;
     if(total !== null){
@@ -1580,16 +1773,18 @@ function gerarTextoWhatsapp(){
   const prazo = document.getElementById('propostaPrazo').value.trim();
   const validade = document.getElementById('propostaValidade').value.trim();
   const comSubtotal = itens.filter(it => it.subtotal !== null);
-  const total = (tipo === 'combinado' && comSubtotal.length === itens.length) ? itens.reduce((s, it) => s + it.subtotal, 0) : null;
+  const variosPrazos = itens.some(itemTemVariosPrazos);
+  const total = (tipo === 'combinado' && !variosPrazos && comSubtotal.length === itens.length) ? itens.reduce((s, it) => s + it.subtotal, 0) : null;
+  const totaisPrazo = (tipo === 'combinado' && variosPrazos) ? totaisPorPrazo(itens).totais : [];
 
-  document.getElementById('whatsappTexto').value = montarTextoWhatsapp(clienteNome, tipo, itens, prazo, validade, total);
+  document.getElementById('whatsappTexto').value = montarTextoWhatsapp(clienteNome, tipo, itens, prazo, validade, total, totaisPrazo);
   document.getElementById('whatsappOutput').style.display = 'block';
 }
 document.getElementById('gerarTextoBtn').addEventListener('click', gerarTextoWhatsapp);
 
 async function whatsappProposta(clienteNome, p){
   const itens = p.itens || [{ produto: p.produto, quantidade: null, unidade: '', valor_unitario: null, subtotal: null }];
-  const texto = montarTextoWhatsapp(clienteNome, p.tipo || 'combinado', itens, p.prazo_pagamento, p.validade, p.total);
+  const texto = montarTextoWhatsapp(clienteNome, p.tipo || 'combinado', itens, p.prazo_pagamento, p.validade, p.total, p.totais_por_prazo);
   try{
     await navigator.clipboard.writeText(texto);
     showConfirm('Texto copiado! Já pode colar no WhatsApp.');
@@ -1610,18 +1805,10 @@ async function gerarImagemProposta(clienteNome, p, btnEl){
     let totalHtml = '';
     let rodapeHtml = '';
     if(p.itens){
-      linhasTabela = p.itens.map(it => {
-        const qtd = (it.quantidade !== null && it.quantidade !== undefined) ? it.quantidade + ' ton' : '—';
-        const unid = it.unidade || '';
-        const valorUnit = (it.valor_unitario !== null && it.valor_unitario !== undefined) ? 'R$ ' + Number(it.valor_unitario).toFixed(2) + '/ton' : '—';
-        const sub = (it.subtotal !== null && it.subtotal !== undefined) ? 'R$ ' + Number(it.subtotal).toFixed(2) : '—';
-        return '<tr><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + escapeHtml(it.produto || '—') + (unid ? ' <span style="color:#948E7C;font-size:12px;">(' + escapeHtml(unid) + ')</span>' : '') + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + escapeHtml(String(qtd)) + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + valorUnit + '</td><td style="padding:10px 16px;border-bottom:1px solid #DEDACB;">' + sub + '</td></tr>';
-      }).join('');
-      if(p.tipo === 'combinado' && p.total !== null && p.total !== undefined){
-        totalHtml = '<div style="padding:12px 16px;font-size:16px;font-weight:500;color:#253C29;background:#E1E9DE;text-align:right;">Total: R$ ' + Number(p.total).toFixed(2) + '</div>';
-      }else if(p.tipo === 'alternativas'){
-        totalHtml = '<div style="padding:10px 16px;font-size:13px;color:#948E7C;">Alternativas — cliente escolhe uma opção</div>';
-      }
+      linhasTabela = p.itens.map(it => linhasItemHtml(it, { td: ' style="padding:10px 16px;border-bottom:1px solid #DEDACB;"', faint: '#948E7C' })).join('');
+      totalHtml = totalPropostaHtml(p,
+        ' style="padding:12px 16px;font-size:16px;font-weight:500;color:#253C29;background:#E1E9DE;text-align:right;"',
+        ' style="padding:10px 16px;font-size:13px;color:#948E7C;"');
       const rodapeItens = [];
       if(p.prazo_pagamento) rodapeItens.push('Prazo: ' + escapeHtml(p.prazo_pagamento));
       if(p.validade) rodapeItens.push('Válida até: ' + escapeHtml(p.validade));
